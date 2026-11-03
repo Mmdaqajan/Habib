@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">حبیب</string>
+    <string name="profile_age">سن: %1$s</string>
+    <string name="profile_age_missing">سن: ثبت نشده</string>
+</resources>
