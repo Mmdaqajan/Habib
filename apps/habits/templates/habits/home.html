@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<style>
+    /* Modern Carousel Banner */
+    .quote-banner {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 16px;
+        padding: 18px;
+        margin-bottom: 22px;
+        position: relative;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+    .quote-text {
+        font-size: 0.95rem;
+        line-height: 1.7;
+        color: var(--text-bright);
+        font-weight: 600;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+    }
+    .quote-dots {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 12px;
+    }
+    .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .dot.active {
+        background: var(--accent-green);
+        width: 22px;
+        border-radius: 6px;
+        box-shadow: 0 0 10px var(--accent-green);
+    }
+
+    /* Habits Cards */
+    .habits-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+    .habit-item {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .habit-item:hover {
+        border-color: rgba(16, 185, 129, 0.4);
+        transform: translateY(-2px);
+    }
+    .habit-right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .habit-emoji {
+        font-size: 1.9rem;
+        width: 52px;
+        height: 52px;
+        background: rgba(15, 23, 42, 0.8);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--card-border);
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+    }
+    .habit-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .habit-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-bright);
+    }
+    .habit-sub {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+    .habit-action {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .checkbox-custom {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: 2px solid var(--card-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: rgba(11, 15, 23, 0.6);
+    }
+    .checkbox-custom.checked {
+        background: var(--accent-green);
+        border-color: var(--accent-green);
+        color: #fff;
+        box-shadow: 0 0 12px var(--glow-green);
+    }
+
+    /* GitHub Chart Matrix */
+    .github-grid-wrapper {
+        overflow-x: auto;
+        padding-bottom: 8px;
+    }
+    .github-grid {
+        display: grid;
+        grid-template-rows: repeat(7, 13px);
+        grid-auto-flow: column;
+        gap: 4px;
+        width: max-content;
+    }
+    .day-cell {
+        width: 13px;
+        height: 13px;
+        border-radius: 3px;
+        transition: transform 0.1s;
+    }
+    .day-cell:hover { transform: scale(1.3); z-index: 10; }
+    .level-0 { background-color: #161b22; border: 1px solid rgba(255,255,255,0.04); }
+    .level-1 { background-color: #064e3b; }
+    .level-2 { background-color: #047857; }
+    .level-3 { background-color: #10b981; }
+    .level-4 { background-color: #34d399; box-shadow: 0 0 8px rgba(52, 211, 153, 0.6); }
+
+    .chart-select-btn {
+        background: #0b0f17;
+        color: var(--text-bright);
+        border: 1px solid var(--card-border);
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        outline: none;
+    }
+
+    .add-habit-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #fff;
+        width: 100%;
+        padding: 16px;
+        border-radius: 16px;
+        font-size: 1.05rem;
+        font-weight: 800;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        box-shadow: 0 6px 20px var(--glow-green);
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Motivational Banner -->
+<div class="quote-banner">
+    <div style="font-size: 0.78rem; color: var(--accent-green); font-weight: 800; margin-bottom: 8px; display:flex; align-items:center; gap:6px;">
+        <i class="fa-solid fa-lightbulb"></i> الهام‌بخش امروز:
+    </div>
+    <div class="quote-text" id="quoteText">{{ quotes.0 }}</div>
+    <div class="quote-dots">
+        {% for q in quotes %}
+        <div class="dot {% if forloop.first %}active{% endif %}" onclick="setQuote({{ forloop.counter0 }})"></div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Habits Section -->
+<div class="habits-header">
+    <h3 style="color: var(--text-bright); font-size: 1.15rem; font-weight:800;">عادت‌های امروز</h3>
+    <span style="font-size: 0.85rem; color: var(--accent-lime); background: rgba(52, 211, 153, 0.1); padding: 4px 10px; border-radius: 12px; font-weight:700;">
+        {{ completed_today }} از {{ total_habits }} تیک خورده
+    </span>
+</div>
+
+<div class="habits-list" id="habitsList">
+    {% for item in habits_data %}
+    <div class="habit-item" data-id="{{ item.habit.id }}">
+        <div class="habit-right">
+            <div class="habit-emoji">{{ item.habit.emoji }}</div>
+            <div class="habit-info">
+                <div class="habit-title">{{ item.habit.title }}</div>
+                <div class="habit-sub">
+                    {% if item.habit.habit_type == 'quantitative' %}
+                        هدف: حداقل {{ item.habit.min_value }} تا {{ item.habit.max_value }} {{ item.habit.unit }}
+                    {% else %}
+                        تیک‌زدنی
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="habit-action">
+            {% if item.habit.habit_type == 'quantitative' %}
+            <input type="number" class="form-control" style="width: 75px; text-align: center; padding: 6px 4px; font-weight:bold;" 
+                   value="{{ item.value }}" min="{{ item.habit.min_value }}" max="{{ item.habit.max_value }}"
+                   onclick="beginQuantEdit(this)" onblur="finishQuantEdit(this)"
+                   data-saved-value="{{ item.value }}">
+            {% endif %}
+
+            <div class="checkbox-custom {% if item.completed %}checked{% endif %}" 
+                 onclick="toggleHabitCheck({{ item.habit.id }}, this)">
+                <i class="fa-solid fa-check"></i>
+            </div>
+
+            <button style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding: 4px;"
+                    onclick="openEditModal({{ item.habit.id }}, '{{ item.habit.title }}', '{{ item.habit.emoji }}', '{{ item.habit.habit_type }}', {{ item.habit.min_value }}, {{ item.habit.max_value }}, '{{ item.habit.unit }}')">
+                <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- GitHub Style Activity Matrix -->
+<div class="card github-chart-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h4 style="font-size: 0.95rem; color: var(--text-bright); font-weight:700;">تقویم پایداری عادت</h4>
+        <span style="font-size: 0.75rem; color: var(--accent-lime); font-weight:600;">Last 360 Days Overview</span>
+    </div>
+    <div class="github-grid-wrapper">
+        <div class="github-grid">
+            {% for day in matrix_days %}
+            <div class="day-cell level-{{ day.level }}" title="{{ day.jdate_str }}: {{ day.count }} عادت ثبت شده"></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Habit Growth/Decline Chart -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h4 style="font-size: 0.95rem; color: var(--text-bright); font-weight:700;">نمودار روند رشد در طول زمان</h4>
+        <select class="chart-select-btn" id="habitChartSelector" onchange="loadHabitChart(this.value)">
+            {% for h in habits_data %}
+            <option value="{{ h.habit.id }}">{{ h.habit.emoji }} {{ h.habit.title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <canvas id="habitProgressChart" height="180"></canvas>
+</div>
+
+<!-- Add Habit Button -->
+<button class="add-habit-btn" onclick="openAddModal()">
+    <i class="fa-solid fa-circle-plus"></i>
+    <span>افزودن عادت جدید</span>
+</button>
+
+<!-- Add Habit Modal -->
+<div class="modal" id="addHabitModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 18px; color: var(--text-bright); font-weight:800;">افزودن عادت جدید</h3>
+        <form action="{% url 'add_habit' %}" method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>عنوان عادت</label>
+                <input type="text" name="title" class="form-control" required placeholder="مثلا: پیاده‌روی">
+            </div>
+            <div class="form-group">
+                <label>ایموجی / آیکون</label>
+                <input type="text" name="emoji" class="form-control" value="📌">
+            </div>
+            <div class="form-group">
+                <label>نوع عادت</label>
+                <select name="habit_type" id="addHabitType" class="form-control" onchange="toggleQuantFields(this.value, 'add')">
+                    <option value="boolean">تیک زدنی (بله / خیر)</option>
+                    <option value="quantitative">مقدارپذیر (عددی)</option>
+                </select>
+            </div>
+            <div id="addQuantSection" style="display: none;">
+                <div style="display: flex; gap: 10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>حداقل (کمینه)</label>
+                        <input type="number" name="min_value" class="form-control" value="10">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>حداکثر (بیشینه)</label>
+                        <input type="number" name="max_value" class="form-control" value="100">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>واحد (صفحه، دقیقه و...)</label>
+                    <input type="text" name="unit" class="form-control" placeholder="دقیقه">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn btn-primary">ثبت عادت</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit / Delete Modal -->
+<div class="modal" id="editHabitModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 18px; color: var(--text-bright); font-weight:800;">ویرایش و مدیریت عادت</h3>
+        <form id="editHabitForm" method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>عنوان عادت</label>
+                <input type="text" name="title" id="editTitle" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>ایموجی</label>
+                <input type="text" name="emoji" id="editEmoji" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>نوع عادت</label>
+                <select name="habit_type" id="editHabitType" class="form-control" onchange="toggleQuantFields(this.value, 'edit')">
+                    <option value="boolean">تیک زدنی</option>
+                    <option value="quantitative">مقدارپذیر</option>
+                </select>
+            </div>
+            <div id="editQuantSection" style="display: none;">
+                <div style="display: flex; gap: 10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>کمینه</label>
+                        <input type="number" name="min_value" id="editMin" class="form-control">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>بیشینه</label>
+                        <input type="number" name="max_value" id="editMax" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>واحد</label>
+                    <input type="text" name="unit" id="editUnit" class="form-control">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn btn-primary">ذخیره تغییرات</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteHabit()">حذف عادت</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">انصراف</button>
+            </div>
+        </form>
+
+        <form id="deleteHabitForm" method="POST" style="display: none;">
+            {% csrf_token %}
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+{{ quotes|json_script:"quotes-data" }}
+<script>
+    const quotes = JSON.parse(document.getElementById('quotes-data').textContent);
+    let quoteIndex = 0;
+    function setQuote(idx) {
+        quoteIndex = idx;
+        document.getElementById('quoteText').innerText = quotes[quoteIndex];
+        document.querySelectorAll('.dot').forEach((d, i) => {
+            d.classList.toggle('active', i === quoteIndex);
+        });
+    }
+
+    setInterval(() => {
+        quoteIndex = (quoteIndex + 1) % quotes.length;
+        setQuote(quoteIndex);
+    }, 5000);
+
+    function toggleHabitCheck(habitId, el) {
+        const valueInput = document.querySelector('.habit-item[data-id="' + habitId + '"] input[type="number"]');
+        const amountChanged = valueInput && valueInput.value !== valueInput.dataset.savedValue;
+        const isChecked = amountChanged && valueInput.value !== ''
+            ? true
+            : !el.classList.contains('checked');
+        el.classList.toggle('checked', isChecked);
+        
+        fetch("{% url 'toggle_habit' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                habit_id: habitId,
+                completed: isChecked,
+                value: valueInput ? valueInput.value : null
+            })
+        }).then(response => {
+            if (!response.ok) throw new Error('Failed to update habit');
+            if (valueInput) valueInput.dataset.savedValue = valueInput.value;
+            location.reload();
+        }).catch(error => {
+            el.classList.toggle('checked');
+            console.error(error);
+        });
+    }
+
+    function beginQuantEdit(input) {
+        const checkbox = input.closest('.habit-item').querySelector('.checkbox-custom');
+        checkbox.classList.remove('checked');
+    }
+
+    function finishQuantEdit(input) {
+        const checkbox = input.closest('.habit-item').querySelector('.checkbox-custom');
+        checkbox.classList.toggle('checked', input.value === input.dataset.savedValue);
+    }
+
+    function openAddModal() { document.getElementById('addHabitModal').style.display = 'flex'; }
+    function closeAddModal() { document.getElementById('addHabitModal').style.display = 'none'; }
+
+    function openEditModal(id, title, emoji, type, minVal, maxVal, unit) {
+        document.getElementById('editTitle').value = title;
+        document.getElementById('editEmoji').value = emoji;
+        document.getElementById('editHabitType').value = type;
+        document.getElementById('editMin').value = minVal;
+        document.getElementById('editMax').value = maxVal;
+        document.getElementById('editUnit').value = unit;
+
+        toggleQuantFields(type, 'edit');
+        document.getElementById('editHabitForm').action = "/edit-habit/" + id + "/";
+        document.getElementById('deleteHabitForm').action = "/delete-habit/" + id + "/";
+        document.getElementById('editHabitModal').style.display = 'flex';
+    }
+
+    function closeEditModal() { document.getElementById('editHabitModal').style.display = 'none'; }
+
+    function confirmDeleteHabit() {
+        if (confirm("⚠️ آیا مطمئن هستید؟ تمامی اطلاعات و سوابق ثبت شده برای این عادت در دسترس نخواهد بود!")) {
+            document.getElementById('deleteHabitForm').submit();
+        }
+    }
+
+    function toggleQuantFields(val, mode) {
+        const sec = mode === 'add' ? document.getElementById('addQuantSection') : document.getElementById('editQuantSection');
+        sec.style.display = (val === 'quantitative') ? 'block' : 'none';
+    }
+
+    let myChart = null;
+    function loadHabitChart(habitId) {
+        if (!habitId) return;
+        fetch('/get-habit-chart-data/' + habitId + '/')
+            .then(res => res.json())
+            .then(data => {
+                const ctx = document.getElementById('habitProgressChart').getContext('2d');
+                if (myChart) myChart.destroy();
+                const numericValues = data.values.filter(Number.isFinite);
+                const isQuantitative = data.min_value !== null && data.max_value !== null;
+                
+                const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+                myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: data.title + (data.unit ? ' (' + data.unit + ')' : ''),
+                            data: data.values,
+                            borderColor: '#10b981',
+                            backgroundColor: gradient,
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointBackgroundColor: '#10b981',
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                ...(isQuantitative
+                                    ? {
+                                        min: Math.min(0, ...numericValues),
+                                        max: Math.max(data.max_value, ...numericValues)
+                                    }
+                                    : { beginAtZero: true, suggestedMax: 1 }),
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#64748b' }
+                            },
+                            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#9eb1c9', font: { family: 'Vazirmatn' } } }
+                        }
+                    }
+                });
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const selector = document.getElementById('habitChartSelector');
+        if (selector && selector.value) {
+            loadHabitChart(selector.value);
+        }
+    });
+</script>
+{% endblock %}

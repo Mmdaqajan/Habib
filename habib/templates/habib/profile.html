@@ -1,0 +1,73 @@
+{% extends 'habib/base.html' %}
+
+{% block extra_head %}
+<style>
+    .profile-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.8rem;
+        color: var(--accent-green);
+        border: 3px solid var(--accent-green);
+        box-shadow: 0 0 20px var(--glow-green);
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="profile-header">
+        <div class="profile-avatar">
+            {% if profile.profile_pic %}
+                <img src="{{ profile.profile_pic.url }}" alt="Profile">
+            {% else %}
+                <i class="fa-solid fa-user-astronaut"></i>
+            {% endif %}
+        </div>
+        <h3 style="color:var(--text-bright); font-weight:800;">{{ profile.name }}</h3>
+        <span style="font-size:0.85rem; color:var(--text-muted);">{{ profile.email }}</span>
+    </div>
+
+    <form action="{% url 'profile' %}" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>نام و نام خانوادگی</label>
+            <input type="text" name="name" class="form-control" value="{{ profile.name }}">
+        </div>
+        <div class="form-group">
+            <label>سن</label>
+            <input type="number" name="age" class="form-control" value="{{ profile.age }}">
+        </div>
+        <div class="form-group">
+            <label>جیمیل / ایمیل</label>
+            <input type="email" name="email" class="form-control" value="{{ profile.email }}">
+        </div>
+        <div class="form-group">
+            <label>شماره تلفن</label>
+            <input type="text" name="phone" class="form-control" value="{{ profile.phone }}">
+        </div>
+        <div class="form-group">
+            <label>تغییر تصویر پروفایل</label>
+            <input type="file" name="profile_pic" class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top: 15px;">ذخیره تغییرات پروفایل</button>
+    </form>
+</div>
+{% endblock %}
