@@ -19,6 +19,7 @@ class Habit(models.Model):
     habit_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_BOOLEAN, verbose_name="نوع عادت")
     min_value = models.IntegerField(default=0, verbose_name="حداقل مقدار")
     max_value = models.IntegerField(default=100, verbose_name="حداکثر مقدار")
+    default_value = models.IntegerField(blank=True, null=True, verbose_name="مقدار پیش‌فرض")
     unit = models.CharField(max_length=50, blank=True, null=True, verbose_name="واحد")
     description = models.TextField(blank=True, null=True, verbose_name="توضیحات و روتین شخصی")
     is_deleted = models.BooleanField(default=False, verbose_name="حذف منطقی")
@@ -35,6 +36,7 @@ class HabitLog(models.Model):
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name='logs')
     date = models.DateField(verbose_name="تاریخ")
     completed = models.BooleanField(default=False, verbose_name="انجام شده")
+    skipped = models.BooleanField(default=False, verbose_name="انجام نشده")
     value = models.IntegerField(blank=True, null=True, verbose_name="مقدار ثبت شده")
 
     class Meta:
