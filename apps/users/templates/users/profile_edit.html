@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<style>
+    .profile-edit-heading { margin-bottom: 16px; color: var(--text-bright); }
+    .profile-edit-heading p { margin-top: 5px; color: var(--text-muted); font-size: .85rem; }
+    .jalali-date-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .profile-photo-preview {
+        display: block;
+        width: 76px;
+        height: 76px;
+        margin-bottom: 10px;
+        border: 2px solid var(--card-border);
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    .profile-photo-remove { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .85rem; }
+    .profile-photo-remove input { accent-color: #ef4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="profile-edit-heading">
+        <h2>ویرایش اطلاعات کاربری</h2>
+        <p>اطلاعات حساب و تاریخ تولد شمسی خود را ویرایش کنید.</p>
+    </div>
+    <form action="{% url 'profile' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'achievements' %}">
+        <div class="form-group">
+            <label for="profile-edit-name">نام کاربری</label>
+            <input id="profile-edit-name" type="text" name="name" class="form-control"
+                   value="{{ profile.name }}" maxlength="100" required>
+        </div>
+        <div class="form-group">
+            <label for="profile-edit-email">ایمیل</label>
+            <input id="profile-edit-email" type="email" name="email" class="form-control"
+                   value="{{ profile.email }}" maxlength="254" required>
+        </div>
+        <div class="form-group">
+            <label for="profile-edit-phone">شماره تلفن</label>
+            <input id="profile-edit-phone" type="tel" name="phone" class="form-control"
+                   value="{{ profile.phone }}" maxlength="16" inputmode="tel"
+                   pattern="\+?[0-9۰-۹٠-٩]{7,15}" title="۷ تا ۱۵ رقم، با امکان شروع +">
+        </div>
+        <div class="form-group">
+            <label>تاریخ تولد شمسی</label>
+            <div class="jalali-date-fields">
+                <input type="number" name="birth_day" class="form-control" min="1" max="31"
+                       placeholder="روز" aria-label="روز تولد"
+                       value="{{ birth_date_parts.day }}">
+                <input type="number" name="birth_month" class="form-control" min="1" max="12"
+                       placeholder="ماه" aria-label="ماه تولد"
+                       value="{{ birth_date_parts.month }}">
+                <input type="number" name="birth_year" class="form-control" min="1" max="1500"
+                       placeholder="سال" aria-label="سال تولد"
+                       value="{{ birth_date_parts.year }}">
+            </div>
+            {% if profile.birth_date %}
+                <p class="app-menu-age">سن: {{ profile.calculated_age }} سال</p>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <label for="profile-edit-picture">تصویر پروفایل</label>
+            {% if profile.profile_pic %}
+                <img class="profile-photo-preview" src="{{ profile.profile_pic.url }}" alt="تصویر پروفایل فعلی">
+            {% endif %}
+            <input id="profile-edit-picture" type="file" name="profile_pic" class="form-control" accept="image/*">
+            <label class="profile-photo-remove">
+                <input type="checkbox" name="remove_profile_pic">
+                حذف عکس پروفایل
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">ذخیره تنظیمات</button>
+    </form>
+</section>
+{% endblock %}

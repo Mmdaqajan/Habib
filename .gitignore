@@ -62,6 +62,13 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 /media/profiles/
+android/.gradle/
+android/local.properties
+android/**/build/
+
+# Keep the debug APK available for download from the repository README.
+!apk/
+!apk/*.apk
 
 # Flask stuff:
 instance/

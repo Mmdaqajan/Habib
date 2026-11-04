@@ -2,14 +2,219 @@
 
 {% block extra_head %}
 <style>
+    .calendar-card { margin-bottom: 14px; }
+    .calendar-heading, .calendar-month-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .calendar-month-nav { margin: 12px 0; }
+    .month-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        color: var(--text-bright);
+        background: #1f2937;
+        cursor: pointer;
+        font-size: 1.8rem;
+        line-height: 1;
+        padding: 0;
+    }
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 5px;
+    }
+    .calendar-footer {
+        display: flex;
+        justify-content: flex-start;
+        direction: ltr;
+        margin-top: 12px;
+    }
+    .today-button, .add-event-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border: 1px solid var(--card-border);
+        border-radius: 50%;
+        color: var(--text-bright);
+        background: #1f2937;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .add-event-button {
+        color: #fff;
+        background: var(--accent-blue);
+        border-color: var(--accent-blue);
+    }
+    .add-reminder-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 0 14px;
+        border: 1px solid var(--accent-green);
+        border-radius: 10px;
+        color: #fff;
+        background: var(--accent-green);
+        font-size: .88rem;
+        font-weight: 700;
+        line-height: 1;
+        gap: 7px;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .selected-day-actions {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        direction: ltr;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    .reminder-actions {
+        display: flex;
+        justify-content: center;
+        direction: rtl;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0 18px;
+    }
+    .today-button { color: var(--accent-gold); }
+    .selected-date-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+    .selected-date-nav h4 { flex: 1; text-align: center; margin: 0; color: var(--text-bright); }
+    .day-nav-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 36px;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--card-border);
+        border-radius: 50%;
+        color: var(--text-bright);
+        background: #1f2937;
+        text-decoration: none;
+    }
+    .weekday, .cal-day {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .weekday { min-height: 30px; color: var(--text-muted); font-size: 0.72rem; }
+    .cal-day {
+        position: relative;
+        min-height: 44px;
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        color: var(--text-bright);
+        background: rgba(30, 41, 59, 0.5);
+        text-decoration: none;
+        font-size: 0.82rem;
+    }
+    .cal-day.past { color: #94a3b8; background: #0b0f17; }
+    .cal-day.today {
+        color: #111827;
+        background: #d4af37;
+        border-color: #d4af37;
+        font-weight: 800;
+    }
+    .cal-day.selected { outline: 2px solid var(--accent-green); outline-offset: 1px; }
+    .cal-day.empty { border-color: transparent; background: transparent; }
+    .calendar-markers {
+        position: absolute;
+        bottom: 4px;
+        display: flex;
+        justify-content: center;
+        gap: 3px;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .calendar-marker { width: 5px; height: 5px; border-radius: 50%; }
+    .alert-card.light-blue { border-right-color: #38bdf8; }
+    .alert-card.pale-blue { border-right-color: #93c5fd; }
+    .alert-card.strong-blue { border-right-color: #2563eb; }
+    .alert-card.purple { border-right-color: #a855f7; }
+    .badge-light-blue { background: rgba(56, 189, 248, .15); color: #38bdf8; }
+    .badge-pale-blue { background: rgba(147, 197, 253, .15); color: #93c5fd; }
+    .badge-strong-blue { background: rgba(37, 99, 235, .15); color: #2563eb; }
+    .badge-purple { background: rgba(168, 85, 247, .15); color: #a855f7; }
+    .reminder-dot { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; }
+    .selected-day-card h4 { margin-bottom: 10px; color: var(--text-bright); }
+    .selected-event {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--card-border);
+    }
+    .selected-event:last-of-type { border-bottom: 0; }
+    .selected-event-title { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+    .selected-day-section-title {
+        margin: 12px 0 4px;
+        color: var(--text-muted);
+        font-size: .82rem;
+        font-weight: 700;
+    }
+    .selected-alert {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--card-border);
+    }
+    .selected-alert:last-child { border-bottom: 0; }
+    .selected-alert-title { color: var(--text-bright); font-weight: 600; }
+    .selected-alert-detail { margin-top: 3px; color: var(--text-muted); font-size: .78rem; }
+    .event-dot-large { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; }
+    .event-actions {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+    .event-delete, .event-edit {
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 7px;
+    }
+    .event-edit { color: var(--accent-blue); }
+    .alert-actions {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+    .event-title-input {
+        min-height: 120px;
+        resize: vertical;
+        line-height: 1.7;
+    }
+    .event-form { margin-top: 16px; }
+    .color-options { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .color-option { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; cursor: pointer; }
+    .color-option input { accent-color: var(--accent-green); }
     .filter-tabs {
         display: flex;
         gap: 8px;
         overflow-x: auto;
         padding-bottom: 10px;
-        margin-bottom: 18px;
+        margin-bottom: 10px;
     }
     .filter-btn {
+        display: inline-flex;
+        align-items: center;
         padding: 8px 16px;
         border-radius: 25px;
         background: rgba(15, 23, 42, 0.8);
@@ -19,170 +224,424 @@
         white-space: nowrap;
         border: 1px solid var(--card-border);
         font-weight: 600;
-        transition: all 0.2s;
+        cursor: pointer;
     }
-    .filter-btn.active {
-        background: var(--accent-green);
-        color: #fff;
-        border-color: var(--accent-green);
-        box-shadow: 0 4px 12px var(--glow-green);
-    }
-
+    .filter-btn.active { background: var(--accent-green); color: #fff; border-color: var(--accent-green); }
     .alert-card {
-        border-right: 5px solid var(--accent-blue);
         display: flex;
         align-items: center;
         justify-content: space-between;
+        border-right: 5px solid var(--accent-blue);
     }
     .alert-card.blue { border-right-color: var(--accent-blue); }
     .alert-card.green { border-right-color: var(--accent-green); }
     .alert-card.orange { border-right-color: var(--accent-orange); }
-    .alert-card.gold { border-right-color: var(--accent-gold); }
-
-    .alert-badge {
-        font-size: 0.75rem;
-        padding: 3px 10px;
-        border-radius: 6px;
-        font-weight: 700;
-    }
+    .alert-card.purple { border-right-color: var(--accent-purple); }
+    .alert-badge { font-size: 0.75rem; padding: 3px 10px; border-radius: 6px; font-weight: 700; }
     .badge-blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
     .badge-green { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
     .badge-orange { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); }
-    .badge-gold { background: rgba(245, 158, 11, 0.15); color: var(--accent-gold); }
-
-    .calendar-card { margin-top: 25px; }
-    .calendar-grid {
+    .badge-purple { background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); }
+    .form-messages { margin-bottom: 12px; color: #fca5a5; }
+    .alert-weekdays {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 8px;
     }
-    .cal-day {
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid var(--card-border);
-        border-radius: 12px;
-        padding: 10px;
-        font-size: 0.8rem;
-        min-height: 75px;
+    .alert-weekday-option {
         display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        transition: background 0.2s;
-    }
-    .cal-day.past {
-        background: #0b0f17;
-        color: #475569;
-        border-color: rgba(255,255,255,0.03);
-    }
-    .cal-day.past:hover { background: #1e293b; color: var(--text-bright); }
-    .cal-day.today {
-        border: 2px solid var(--accent-gold);
-        box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
-        background: rgba(245, 158, 11, 0.05);
-    }
-    .cal-day.future {
-        background: rgba(30, 41, 59, 0.5);
+        align-items: center;
+        gap: 6px;
         color: var(--text-bright);
+        font-size: .85rem;
     }
-    .cal-event {
-        font-size: 0.72rem;
-        color: var(--accent-lime);
-        margin-top: 4px;
-        font-weight: 600;
+    .alert-weekday-option input { accent-color: var(--accent-blue); }
+    .yearly-date-row { display: block; }
+    .is-yearly .yearly-date-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .yearly-date-row .form-group { min-width: 0; }
+    .yearly-date-row label { font-size: .8rem; }
+    .is-yearly .yearly-date-row .form-group:not([data-alert-fields]) {
+        grid-column: 1 / -1;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Filters -->
-<div class="filter-tabs">
-    <a href="?filter=all" class="filter-btn {% if current_filter == 'all' %}active{% endif %}">همه</a>
-    <a href="?filter=daily" class="filter-btn {% if current_filter == 'daily' %}active{% endif %}">روزانه</a>
-    <a href="?filter=weekly" class="filter-btn {% if current_filter == 'weekly' %}active{% endif %}">هفتگی</a>
-    <a href="?filter=monthly" class="filter-btn {% if current_filter == 'monthly' %}active{% endif %}">ماهانه</a>
-    <a href="?filter=yearly" class="filter-btn {% if current_filter == 'yearly' %}active{% endif %}">سالانه</a>
-</div>
-
-<!-- Add Alert Button -->
-<button class="btn btn-primary" style="margin-bottom: 18px;" onclick="openAlertModal()">
-    <i class="fa-solid fa-plus-circle"></i> افزودن یادآوری جدید
-</button>
-
-<!-- Alerts List -->
-{% for a in alerts %}
-<div class="card alert-card {{ a.color_code }}">
-    <div>
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="alert-badge badge-{{ a.color_code }}">{{ a.get_frequency_display }}</span>
-            <span style="font-size:0.8rem; color:var(--text-muted);">{{ a.time_str }}</span>
-        </div>
-        <div style="color:var(--text-bright); font-size:0.98rem; font-weight:600;">{{ a.title }}</div>
+<section class="card calendar-card">
+    <div class="calendar-heading">
+        <h3 style="color:var(--text-bright); font-weight:800;">تقویم</h3>
+        <span style="font-size:0.8rem; color:var(--text-muted);">you just have today</span>
     </div>
-    <form action="{% url 'delete_alert' a.id %}" method="POST" onsubmit="return confirm('آیا از حذف این یادآوری اطمینان دارید؟');">
-        {% csrf_token %}
-        <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px;">
-            <i class="fa-solid fa-trash-can"></i>
-        </button>
-    </form>
-</div>
-{% empty %}
-<p style="color:var(--text-muted); text-align:center; padding:30px;">هیچ یادآوری در این دسته ثبت نشده است.</p>
-{% endfor %}
-
-<!-- Persian Calendar Grid -->
-<div class="card calendar-card">
-    <h4 style="margin-bottom: 14px; color: var(--text-bright); font-weight:800;">📅 تقویم رویدادها (۳۰ روزه)</h4>
+    <div class="calendar-month-nav">
+        <a class="month-button" aria-label="ماه قبل" href="?month={{ month_offset|add:'-1' }}{% if current_filter %}&filter={{ current_filter }}{% endif %}">‹</a>
+        <strong style="color:var(--text-bright);">{{ month_title }}</strong>
+        <a class="month-button" aria-label="ماه بعد" href="?month={{ month_offset|add:'1' }}{% if current_filter %}&filter={{ current_filter }}{% endif %}">›</a>
+    </div>
     <div class="calendar-grid">
+        {% for weekday in weekday_labels %}<div class="weekday">{{ weekday|slice:":1" }}</div>{% endfor %}
         {% for day in calendar_days %}
-        <div class="cal-day {{ day.status }}">
-            <div style="font-weight: 700;">{{ day.jdate_str }}</div>
-            {% if day.event %}
-                <div class="cal-event">{{ day.event }}</div>
+            {% if day.empty %}
+                <div class="cal-day empty" aria-hidden="true"></div>
+            {% else %}
+                <a class="cal-day {{ day.status }}{% if day.selected %} selected{% endif %}"
+                   href="?month={{ month_offset }}&date={{ day.gdate }}{% if current_filter %}&filter={{ current_filter }}{% endif %}"
+                   aria-label="{{ day.day }}، {{ day.events|length }} رویداد و {{ day.alerts|length }} یادآوری">
+                    {{ day.day_display }}
+                    {% if day.events or day.alerts %}
+                        <span class="calendar-markers">
+                            {% for event in day.events %}
+                                <span class="calendar-marker" data-marker-type="event" title="{{ event.title }}"
+                                      style="background-color:{{ event.color }};"></span>
+                            {% endfor %}
+                            {% for alert in day.alerts %}
+                                <span class="calendar-marker" data-marker-type="reminder" title="{{ alert.title }}"
+                                      style="background-color:{{ alert.calendar_color }};"></span>
+                            {% endfor %}
+                        </span>
+                    {% endif %}
+                </a>
             {% endif %}
-            {% if day.status == 'today' %}
-                <div style="font-size:0.68rem; color:var(--accent-gold); font-weight:800; margin-top:2px;">امروز</div>
-            {% endif %}
-        </div>
         {% endfor %}
     </div>
+    <div class="calendar-footer">
+        <a class="today-button" href="{{ selected_date_links.today }}" aria-label="رفتن به امروز" title="رفتن به امروز">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+        </a>
+    </div>
+</section>
+
+<section class="card selected-day-card">
+    <div class="selected-date-nav">
+        <a class="day-nav-button" href="{{ selected_date_links.previous }}" aria-label="روز قبل">‹</a>
+        <h4>{{ selected_date_jalali }}</h4>
+        <a class="day-nav-button" href="{{ selected_date_links.next }}" aria-label="روز بعد">›</a>
+    </div>
+
+    <div class="selected-day-section-title">یادآوری‌های این روز</div>
+    {% for alert in selected_alerts %}
+        <div class="selected-alert">
+            <div style="display:flex; align-items:center; gap:9px;">
+                <span class="reminder-dot" style="background-color:{{ alert.calendar_color }};"></span>
+                <div class="selected-alert-title" style="color:{{ alert.calendar_color }};">{{ alert.title }}</div>
+            </div>
+            <div class="selected-alert-detail">{{ alert.get_frequency_display }}{% if alert.time_str %} · {{ alert.time_str }}{% endif %}</div>
+        </div>
+    {% empty %}
+        <p style="color:var(--text-muted); font-size:0.85rem;">برای این روز یادآوری‌ای ثبت نشده است.</p>
+    {% endfor %}
+
+    <div class="selected-day-section-title">رویدادهای این روز</div>
+    {% for event in selected_events %}
+        <div class="selected-event">
+            <span class="event-dot-large" style="background-color:{{ event.color }};"></span>
+            <span class="selected-event-title" style="color:{{ event.color }};">{{ event.title }}</span>
+            <div class="event-actions">
+                <button class="event-edit" type="button" aria-label="ویرایش رویداد"
+                        data-event-id="{{ event.id }}" data-event-title="{{ event.title }}"
+                        data-event-color="{{ event.color }}" onclick="openEditEventModal(this)">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <form action="{% url 'delete_calendar_event' event.id %}" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="month" value="{{ month_offset }}">
+                    <input type="hidden" name="filter" value="{{ current_filter }}">
+                    <button class="event-delete" type="submit" aria-label="حذف رویداد"><i class="fa-solid fa-trash-can"></i></button>
+                </form>
+            </div>
+        </div>
+    {% empty %}
+        <p style="color:var(--text-muted); font-size:0.85rem;">برای این روز رویدادی ثبت نشده است.</p>
+    {% endfor %}
+    <div class="selected-day-actions">
+        <button class="add-event-button" type="button" aria-label="افزودن رویداد" title="افزودن رویداد" onclick="openEventModal()">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+    </div>
+</section>
+
+<div class="modal" id="addEventModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom:18px; color:var(--text-bright); font-weight:800;">افزودن رویداد برای {{ selected_date_jalali }}</h3>
+        <form class="event-form" action="{% url 'add_calendar_event' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="date" value="{{ selected_date_key }}">
+            <input type="hidden" name="month" value="{{ month_offset }}">
+            <input type="hidden" name="filter" value="{{ current_filter }}">
+            <div class="form-group">
+                <label for="eventTitle">عنوان رویداد</label>
+                <textarea id="eventTitle" name="title" class="form-control event-title-input" maxlength="255" required placeholder="مثلاً: اتمام بیمه ماشین"></textarea>
+            </div>
+            <div class="form-group">
+                <label>رنگ رویداد</label>
+                <div class="color-options">
+                    {% for name, color in event_colors.items %}
+                        <label class="color-option">
+                            <input type="radio" name="color" value="{{ color }}" {% if forloop.first %}checked{% endif %}>
+                            <span class="event-dot-large" style="background-color:{{ color }};"></span>
+                            {{ name }}
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" type="submit">ثبت رویداد</button>
+                <button class="btn btn-secondary" type="button" onclick="closeEventModal()">انصراف</button>
+            </div>
+        </form>
+    </div>
 </div>
 
-<!-- Modal Add Alert -->
+<div class="modal" id="editEventModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom:18px; color:var(--text-bright); font-weight:800;">ویرایش رویداد</h3>
+        <form id="editEventForm" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_offset }}">
+            <input type="hidden" name="filter" value="{{ current_filter }}">
+            <div class="form-group">
+                <label for="editEventTitle">عنوان رویداد</label>
+                <textarea id="editEventTitle" name="title" class="form-control event-title-input" maxlength="255" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>رنگ رویداد</label>
+                <div class="color-options">
+                    {% for name, color in event_colors.items %}
+                        <label class="color-option">
+                            <input type="radio" name="color" value="{{ color }}">
+                            <span class="event-dot-large" style="background-color:{{ color }};"></span>
+                            {{ name }}
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" type="submit">ذخیره</button>
+                <button class="btn btn-secondary" type="button" onclick="closeEditEventModal()">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<h3 style="color:var(--text-bright); font-weight:800; margin:22px 0 12px;">یادآوری‌ها</h3>
+<div class="filter-tabs" aria-label="فیلتر یادآوری‌ها">
+    <button type="button" class="filter-btn {% if current_filter == 'daily' %}active{% endif %}" data-reminder-filter="daily" aria-pressed="{% if current_filter == 'daily' %}true{% else %}false{% endif %}">روزانه</button>
+    <button type="button" class="filter-btn {% if current_filter == 'weekly' %}active{% endif %}" data-reminder-filter="weekly" aria-pressed="{% if current_filter == 'weekly' %}true{% else %}false{% endif %}">هفتگی</button>
+    <button type="button" class="filter-btn {% if current_filter == 'monthly' %}active{% endif %}" data-reminder-filter="monthly" aria-pressed="{% if current_filter == 'monthly' %}true{% else %}false{% endif %}">ماهانه</button>
+    <button type="button" class="filter-btn {% if current_filter == 'yearly' %}active{% endif %}" data-reminder-filter="yearly" aria-pressed="{% if current_filter == 'yearly' %}true{% else %}false{% endif %}">سالانه</button>
+    <button type="button" class="filter-btn {% if current_filter == 'all' %}active{% endif %}" data-reminder-filter="all" aria-pressed="{% if current_filter == 'all' %}true{% else %}false{% endif %}">همه</button>
+</div>
+{% for a in alerts %}
+    <div class="card alert-card {{ a.color_code }}" data-reminder-card data-frequency="{{ a.frequency }}"
+         style="display:{% if current_filter == a.frequency or current_filter == 'all' %}flex{% else %}none{% endif %};">
+        <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="alert-badge badge-{{ a.color_code }}">{{ a.get_frequency_display }}</span>
+                <span style="font-size:0.8rem; color:var(--text-muted);">{{ a.time_str }}</span>
+            </div>
+            <div style="color:var(--text-bright); font-size:0.98rem; font-weight:600;">{{ a.title }}</div>
+            {% if a.description %}
+                <div class="alert-description" style="margin-top:5px; color:var(--text-muted); font-size:.82rem;">
+                    {{ a.description }}
+                </div>
+            {% endif %}
+            {% if a.advance_notice_message %}
+                <div style="margin-top:5px; color:var(--text-muted); font-size:.78rem;">
+                    پیش‌نمایش پیش‌آگاهی: {{ a.advance_notice_message }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="alert-actions">
+            <button class="event-edit" type="button" aria-label="ویرایش یادآوری"
+                    data-alert-id="{{ a.id }}" data-alert-title="{{ a.title }}"
+                    data-alert-description="{{ a.description }}"
+                    data-alert-frequency="{{ a.frequency }}" data-alert-time="{{ a.time_str|default_if_none:'' }}"
+                    data-alert-day="{{ a.form_values.year_day }}" data-alert-month="{{ a.form_values.year_month }}"
+                    data-alert-year="{{ a.form_values.year_value }}" data-alert-month-day="{{ a.form_values.month_day }}"
+                    data-alert-weekdays="{{ a.form_values.weekdays|join:',' }}" data-alert-clock="{{ a.form_values.time }}"
+                    data-alert-advance-notice="{{ a.advance_notice_value }}"
+                    onclick="openEditAlertModal(this)">
+                <i class="fa-solid fa-pen"></i>
+            </button>
+            <form action="{% url 'delete_alert' a.id %}" method="POST" onsubmit="return confirm('آیا از حذف این یادآوری اطمینان دارید؟');">
+                {% csrf_token %}
+                <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px;" aria-label="حذف یادآوری">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+{% endfor %}
+<p id="noFilteredAlerts" style="display:none; color:var(--text-muted); text-align:center; padding:20px;">
+    هیچ یادآوری در این دسته ثبت نشده است.
+</p>
+<div class="reminder-actions">
+    <button class="add-reminder-button" type="button" aria-label="افزودن یادآوری جدید"
+            title="افزودن یادآوری جدید" onclick="openAlertModal()">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> افزودن یادآوری
+    </button>
+</div>
+
 <div class="modal" id="addAlertModal">
     <div class="modal-content">
-        <h3 style="margin-bottom: 18px; color: var(--text-bright); font-weight:800;">افزودن یادآوری جدید</h3>
+        <h3 style="margin-bottom:18px; color:var(--text-bright); font-weight:800;">افزودن یادآوری جدید</h3>
         <form action="{% url 'add_alert' %}" method="POST">
             {% csrf_token %}
             <div class="form-group">
                 <label>نوع یادآوری</label>
-                <select name="frequency" id="alertFreq" class="form-control" onchange="updateAlertTip(this.value)">
+                <select name="frequency" id="alertFreq" class="form-control" onchange="updateAlertForm(this.form); updateAlertTip(this.value)">
+                    <option value="daily">روزانه</option><option value="weekly">هفتگی</option>
+                    <option value="monthly">ماهانه</option><option value="yearly">سالانه</option>
+                </select>
+            </div>
+            <div id="alertTipBox" style="background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.3); padding:12px; border-radius:12px; margin-bottom:14px;">
+                <span id="alertTipText" style="color:var(--accent-blue); font-size:.82rem;">کارهای روزانه</span>
+            </div>
+            <div class="form-group">
+                <label>متن یادآوری</label>
+                <input id="addAlertTitle" type="text" name="title" class="form-control" required
+                       placeholder="مثلاً: ثبت عادت‌های امروز">
+            </div>
+            <div class="form-group">
+                <label for="addAlertDescription">توضیحات</label>
+                <textarea id="addAlertDescription" name="description" class="form-control"
+                          rows="3" maxlength="1000"></textarea>
+            </div>
+            <div class="yearly-date-row">
+            <div class="form-group" data-alert-fields="yearly" style="display:none;">
+                <label for="addAlertYearDay">روز</label>
+                <input id="addAlertYearDay" type="number" name="year_day" class="form-control" min="1" max="31" value="1">
+            </div>
+            <div class="form-group" data-alert-fields="yearly" style="display:none;">
+                <label for="addAlertYearMonth">ماه</label>
+                <select id="addAlertYearMonth" name="year_month" class="form-control">
+                    {% for month in jalali_months %}<option value="{{ forloop.counter }}">{{ month }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group" data-alert-fields="yearly" style="display:none;">
+                <label for="addAlertYearValue">سال</label>
+                <input id="addAlertYearValue" type="number" name="year_value" class="form-control" min="1" max="9999" value="{{ current_jalali_year }}">
+            </div>
+            <div class="form-group">
+                <label for="addAlertTime">ساعت</label>
+                <input id="addAlertTime" type="time" name="time_val" class="form-control" value="{{ now_time }}" required>
+            </div>
+            </div>
+            <div class="form-group">
+                <label class="alert-weekday-option">
+                    <input type="checkbox" name="advance_notice_enabled" value="on"
+                           onchange="toggleAdvanceNotice(this.form)">
+                    <span data-advance-notice-label>اگر خواستی زودتر خبرت کنم</span>
+                </label>
+                <div data-advance-notice-options style="display:none; margin-top:8px;">
+                    <label for="addAlertAdvanceNotice" data-advance-notice-input-label>چند ساعت قبل؟</label>
+                    <input id="addAlertAdvanceNotice" type="number" name="advance_notice_value"
+                           class="form-control" min="1" max="23" value="1">
+                </div>
+            </div>
+            <div class="form-group" data-alert-fields="weekly" style="display:none;">
+                <label>روزهای هفته</label>
+                <div class="alert-weekdays">
+                    {% for weekday in weekday_labels %}
+                        <label class="alert-weekday-option">
+                            <input type="checkbox" name="weekday" value="{{ weekday }}" {% if forloop.first %}checked{% endif %}>
+                            {{ weekday }}
+                        </label>
+                    {% endfor %}
+                </div>
+                <p class="form-messages" data-weekly-validation style="display:none;"></p>
+            </div>
+            <div class="form-group" data-alert-fields="monthly" style="display:none;">
+                <label for="addAlertMonthDay">روز ماه</label>
+                <input id="addAlertMonthDay" type="number" name="month_day" class="form-control" min="1" max="31" value="1">
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button type="submit" class="btn btn-primary">ثبت یادآوری</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAlertModal()">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal" id="editAlertModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom:18px; color:var(--text-bright); font-weight:800;">ویرایش یادآوری</h3>
+        <form id="editAlertForm" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_offset }}">
+            <input type="hidden" name="date" value="{{ selected_date_key }}">
+            <div class="form-group">
+                <label for="editAlertFrequency">نوع یادآوری</label>
+                <select name="frequency" id="editAlertFrequency" class="form-control" onchange="updateAlertForm(this.form)">
                     <option value="daily">روزانه</option>
                     <option value="weekly">هفتگی</option>
                     <option value="monthly">ماهانه</option>
                     <option value="yearly">سالانه</option>
                 </select>
             </div>
-
-            <!-- Tip Box -->
-            <div id="alertTipBox" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 12px; border-radius: 12px; margin-bottom: 14px;">
-                <div style="display:flex; gap: 10px; align-items: flex-start; color: var(--accent-blue); font-size: 0.82rem; line-height: 1.5;">
-                    <i class="fa-solid fa-circle-info" style="margin-top: 3px;"></i>
-                    <span id="alertTipText">کارهای روزانه</span>
+            <div class="form-group">
+                <label for="editAlertTitle">متن یادآوری</label>
+                <input id="editAlertTitle" type="text" name="title" class="form-control" maxlength="255" required>
+            </div>
+            <div class="form-group">
+                <label for="editAlertDescription">توضیحات</label>
+                <textarea id="editAlertDescription" name="description" class="form-control"
+                          rows="3" maxlength="1000"></textarea>
+            </div>
+            <div class="yearly-date-row">
+            <div class="form-group" data-alert-fields="yearly" style="display:none;">
+                <label for="editAlertYearDay">روز</label>
+                <input id="editAlertYearDay" type="number" name="year_day" class="form-control" min="1" max="31">
+            </div>
+            <div class="form-group" data-alert-fields="yearly" style="display:none;">
+                <label for="editAlertYearMonth">ماه</label>
+                <select id="editAlertYearMonth" name="year_month" class="form-control">
+                    {% for month in jalali_months %}<option value="{{ forloop.counter }}">{{ month }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group" data-alert-fields="yearly" style="display:none;">
+                <label for="editAlertYearValue">سال</label>
+                <input id="editAlertYearValue" type="number" name="year_value" class="form-control" min="1" max="9999">
+            </div>
+            <div class="form-group">
+                <label for="editAlertTime">ساعت</label>
+                <input id="editAlertTime" type="time" name="time_val" class="form-control" required>
+            </div>
+            </div>
+            <div class="form-group">
+                <label class="alert-weekday-option">
+                    <input type="checkbox" name="advance_notice_enabled" value="on"
+                           onchange="toggleAdvanceNotice(this.form)">
+                    <span data-advance-notice-label>اگر خواستی زودتر خبرت کنم</span>
+                </label>
+                <div data-advance-notice-options style="display:none; margin-top:8px;">
+                    <label for="editAlertAdvanceNotice" data-advance-notice-input-label>چند ساعت قبل؟</label>
+                    <input id="editAlertAdvanceNotice" type="number" name="advance_notice_value"
+                           class="form-control" min="1" max="23" value="1">
                 </div>
             </div>
-
-            <div class="form-group">
-                <label>متن یادآوری</label>
-                <input type="text" name="title" class="form-control" required placeholder="مثلا: ثبت عادت های امروز">
+            <div class="form-group" data-alert-fields="weekly" style="display:none;">
+                <label>روزهای هفته</label>
+                <div class="alert-weekdays">
+                    {% for weekday in weekday_labels %}
+                        <label class="alert-weekday-option">
+                            <input type="checkbox" name="weekday" value="{{ weekday }}">
+                            {{ weekday }}
+                        </label>
+                    {% endfor %}
+                </div>
+                <p class="form-messages" data-weekly-validation style="display:none;"></p>
             </div>
-
-            <div class="form-group">
-                <label>زمان / تاریخ (اختیاری)</label>
-                <input type="text" name="time_str" class="form-control" placeholder="مثلا: ۲۱:۰۰ یا ۱۵ آذر">
+            <div class="form-group" data-alert-fields="monthly" style="display:none;">
+                <label for="editAlertMonthDay">روز ماه</label>
+                <input id="editAlertMonthDay" type="number" name="month_day" class="form-control" min="1" max="31">
             </div>
-
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" class="btn btn-primary">ثبت یادآوری</button>
-                <button type="button" class="btn btn-secondary" onclick="closeAlertModal()">انصراف</button>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button type="submit" class="btn btn-primary">ذخیره</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditAlertModal()">انصراف</button>
             </div>
         </form>
     </div>
@@ -192,17 +651,158 @@
 {% block extra_script %}
 <script>
     const tips = {
-        'daily': 'کارهای روزانه',
-        'weekly': 'برنامه‌های هفتگی',
-        'monthly': 'موعدهای ماهانه',
-        'yearly': 'تاریخ‌های سالانه'
+        daily: 'هرروز راس این ساعت برات نوتیف میفرستم، این یعنی دیسیپلین',
+        weekly: 'یاداوری های هفتگی',
+        monthly: 'موعد های ماهانه، همه مون یادمون میره:',
+        yearly: 'رویداد های سالانه،'
+    };
+    const alertPlaceholders = {
+        daily: 'مثلاً: ثبت عادت‌های امروز',
+        weekly: 'نوشتن برنامه ی هفته آینده',
+        monthly: 'مثلاً: پرداخت شهریه باشگاه',
+        yearly: 'مثلاً: تولد عزیزان'
     };
 
-    function updateAlertTip(val) {
-        document.getElementById('alertTipText').innerText = tips[val];
+    function updateAlertTip(value) {
+        document.getElementById('alertTipText').innerText = tips[value];
+        const title = document.getElementById('addAlertTitle');
+        if (title) title.placeholder = alertPlaceholders[value];
     }
 
-    function openAlertModal() { document.getElementById('addAlertModal').style.display = 'flex'; }
+    function validateWeeklyDays(form) {
+        const group = form.querySelector('[data-alert-fields="weekly"]');
+        if (!group || form.querySelector('[name="frequency"]').value !== 'weekly') return true;
+        const checked = group.querySelectorAll('input[name="weekday"]:checked');
+        const message = group.querySelector('[data-weekly-validation]');
+        const allDaysSelected = checked.length === group.querySelectorAll('input[name="weekday"]').length;
+        message.textContent = allDaysSelected ? 'این که شد الارم روزانه عزیزم' : '';
+        message.style.display = allDaysSelected ? 'block' : 'none';
+        return checked.length > 0 && !allDaysSelected;
+    }
+
+    function filterReminders(frequency) {
+        const cards = document.querySelectorAll('[data-reminder-card]');
+        let visibleCount = 0;
+        cards.forEach(card => {
+            const matches = frequency === 'all' || (frequency && card.dataset.frequency === frequency);
+            card.style.display = matches ? '' : 'none';
+            if (matches) visibleCount++;
+        });
+        document.querySelectorAll('[data-reminder-filter]').forEach(button => {
+            const active = button.dataset.reminderFilter === frequency;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', String(active));
+        });
+        document.getElementById('noFilteredAlerts').style.display =
+            frequency && visibleCount === 0 ? 'block' : 'none';
+    }
+
+    function updateAlertForm(form) {
+        const frequency = form.querySelector('[name="frequency"]').value;
+        form.classList.toggle('is-yearly', frequency === 'yearly');
+        const titleInput = form.querySelector('[name="title"]');
+        if (titleInput) titleInput.placeholder = alertPlaceholders[frequency];
+        const noticeLabel = form.querySelector('[data-advance-notice-label]');
+        const noticeInputLabel = form.querySelector('[data-advance-notice-input-label]');
+        const noticeInput = form.querySelector('[name="advance_notice_value"]');
+        if (frequency === 'daily') {
+            noticeLabel.textContent = 'چند ساعت قبلش بهم خبر بده';
+            noticeInputLabel.textContent = 'چند ساعت قبل؟';
+            noticeInput.max = '23';
+        } else {
+            noticeLabel.textContent = 'چند روز قبلش بهم خبر بده';
+            noticeInputLabel.textContent = 'چند روز قبل؟';
+            noticeInput.max = '365';
+        }
+        toggleAdvanceNotice(form);
+        form.querySelectorAll('[data-alert-fields]').forEach(group => {
+            const active = group.dataset.alertFields === frequency;
+            group.style.display = active ? '' : 'none';
+            group.querySelectorAll('input, select').forEach(input => {
+                input.required = active && input.type !== 'checkbox';
+            });
+        });
+        const validationMessage = form.querySelector('[data-weekly-validation]');
+        if (validationMessage) {
+            validationMessage.textContent = '';
+            validationMessage.style.display = 'none';
+        }
+    }
+
+    function toggleAdvanceNotice(form) {
+        const enabled = form.querySelector('[name="advance_notice_enabled"]').checked;
+        const options = form.querySelector('[data-advance-notice-options]');
+        const value = form.querySelector('[name="advance_notice_value"]');
+        options.style.display = enabled ? '' : 'none';
+        value.required = enabled;
+    }
+
+    document.querySelectorAll('[data-reminder-filter]').forEach(button => {
+        button.addEventListener('click', () => filterReminders(button.dataset.reminderFilter));
+    });
+    filterReminders("{% if has_filter %}{{ current_filter }}{% endif %}");
+
+    function openAlertModal() {
+        const modal = document.getElementById('addAlertModal');
+        modal.querySelector('form').reset();
+        modal.querySelector('[name="time_val"]').value = "{{ now_time }}";
+        updateAlertForm(modal.querySelector('form'));
+        updateAlertTip('daily');
+        modal.style.display = 'flex';
+    }
     function closeAlertModal() { document.getElementById('addAlertModal').style.display = 'none'; }
+    function openEditAlertModal(button) {
+        const form = document.getElementById('editAlertForm');
+        form.action = "{% url 'alerts' %}edit-alert/" + button.dataset.alertId + "/";
+        document.getElementById('editAlertTitle').value = button.dataset.alertTitle;
+        document.getElementById('editAlertDescription').value = button.dataset.alertDescription;
+        document.getElementById('editAlertFrequency').value = button.dataset.alertFrequency;
+        document.getElementById('editAlertTime').value = button.dataset.alertClock;
+        const configuredWeekdays = button.dataset.alertWeekdays.split(',');
+        form.querySelectorAll('input[name="weekday"]').forEach(input => {
+            input.checked = configuredWeekdays.includes(input.value);
+        });
+        document.getElementById('editAlertMonthDay').value = button.dataset.alertMonthDay;
+        document.getElementById('editAlertYearDay').value = button.dataset.alertDay;
+        document.getElementById('editAlertYearMonth').value = button.dataset.alertMonth;
+        document.getElementById('editAlertYearValue').value = button.dataset.alertYear;
+        const advanceNotice = Number(button.dataset.alertAdvanceNotice);
+        form.querySelector('[name="advance_notice_enabled"]').checked = advanceNotice > 0;
+        form.querySelector('[name="advance_notice_value"]').value = advanceNotice || 1;
+        updateAlertForm(form);
+        document.getElementById('editAlertModal').style.display = 'flex';
+    }
+    function closeEditAlertModal() { document.getElementById('editAlertModal').style.display = 'none'; }
+    function openEventModal() { document.getElementById('addEventModal').style.display = 'flex'; }
+    function closeEventModal() { document.getElementById('addEventModal').style.display = 'none'; }
+    function openEditEventModal(button) {
+        const modal = document.getElementById('editEventModal');
+        const form = document.getElementById('editEventForm');
+        form.action = "{% url 'alerts' %}edit-calendar-event/" + button.dataset.eventId + "/";
+        document.getElementById('editEventTitle').value = button.dataset.eventTitle;
+        form.querySelectorAll('input[name="color"]').forEach(input => {
+            input.checked = input.value === button.dataset.eventColor;
+        });
+        modal.style.display = 'flex';
+    }
+    function closeEditEventModal() { document.getElementById('editEventModal').style.display = 'none'; }
+
+    document.querySelectorAll('#addAlertModal form, #editAlertForm').forEach(updateAlertForm);
+    document.querySelectorAll('#addAlertModal form, #editAlertForm').forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!validateWeeklyDays(form)) {
+                event.preventDefault();
+                if (form.querySelector('[name="frequency"]').value === 'weekly'
+                    && form.querySelectorAll('[name="weekday"]:checked').length === 0) {
+                    const message = form.querySelector('[data-weekly-validation]');
+                    message.textContent = 'حداقل یک روز را انتخاب کنید.';
+                    message.style.display = 'block';
+                }
+            }
+        });
+        form.querySelectorAll('input[name="weekday"]').forEach(input => {
+            input.addEventListener('change', () => validateWeeklyDays(form));
+        });
+    });
 </script>
 {% endblock %}

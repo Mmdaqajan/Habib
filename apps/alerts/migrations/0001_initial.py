@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('title', models.CharField(max_length=255, verbose_name='متن یادآوری')),
-                ('frequency', models.CharField(choices=[('daily', 'روزانه'), ('weekly', 'هفتگی'), ('monthly', 'ماهانه'), ('yearly', 'سالانه (بنفش)')], default='daily', max_length=20, verbose_name='بازه زمانی')),
+                ('frequency', models.CharField(choices=[('daily', 'روزانه'), ('weekly', 'هفتگی'), ('monthly', 'ماهانه'), ('yearly', 'سالانه')], default='daily', max_length=20, verbose_name='بازه زمانی')),
                 ('time_str', models.CharField(blank=True, max_length=100, null=True, verbose_name='زمان یادآوری')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
             ],
