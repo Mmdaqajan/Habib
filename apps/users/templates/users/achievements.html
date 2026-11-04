@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<style>
+    .achievement-hero {
+        position: relative;
+        overflow: hidden;
+        padding: 22px;
+        text-align: center;
+        background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, .16), transparent 58%), var(--card-bg);
+    }
+    .achievement-cup {
+        width: 112px;
+        height: 128px;
+        margin: 0 auto 8px;
+        filter: drop-shadow(0 8px 18px rgba(245, 158, 11, .25));
+    }
+    .achievement-hero h2 { color: var(--text-bright); font-size: 1.25rem; }
+    .achievement-hero p { margin-top: 4px; color: var(--text-muted); font-size: .85rem; }
+    .trophy-display {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    .trophy-nav-button {
+        display: flex;
+        flex: 0 0 38px;
+        width: 38px;
+        height: 38px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        color: var(--text-bright);
+        background: var(--card-bg);
+        cursor: pointer;
+    }
+    .trophy-nav-button:disabled { opacity: .4; cursor: default; }
+    .trophy-display-cup {
+        position: relative;
+        flex: 0 0 138px;
+        text-align: center;
+    }
+    .achievement-hero.trophy-slide-next .trophy-display-cup,
+    .achievement-hero.trophy-slide-next .trophy-selected-title,
+    .achievement-hero.trophy-slide-next .trophy-selected-status {
+        animation: trophy-slide-next 280ms ease-out both;
+    }
+    .achievement-hero.trophy-slide-previous .trophy-display-cup,
+    .achievement-hero.trophy-slide-previous .trophy-selected-title,
+    .achievement-hero.trophy-slide-previous .trophy-selected-status {
+        animation: trophy-slide-previous 280ms ease-out both;
+    }
+    @keyframes trophy-slide-next {
+        from { opacity: 0; transform: translateX(-24px) scale(.94); }
+        to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    @keyframes trophy-slide-previous {
+        from { opacity: 0; transform: translateX(24px) scale(.94); }
+        to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    .trophy-cup-icon { width: 112px; height: 128px; }
+    .trophy-lock {
+        position: absolute;
+        top: 44%;
+        left: 50%;
+        display: none;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        transform: translate(-50%, -50%);
+        border: 2px solid rgba(255, 255, 255, .75);
+        border-radius: 50%;
+        color: #fff;
+        background: rgba(15, 23, 42, .78);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+    }
+    .trophy-display-cup.is-locked .trophy-lock { display: flex; }
+    .trophy-selected-title { margin-top: 4px; color: var(--text-bright); font-size: 1rem; }
+    .trophy-selected-status { min-height: 1.4em; margin-top: 5px; color: var(--text-muted); font-size: .82rem; }
+    .trophy-selected-status.is-locked { color: #60a5fa; font-weight: 700; }
+    .trophy-app-title { margin: 0 0 8px; color: var(--text-bright); font-size: 1.1rem; }
+    .trophy-cup-progress {
+        height: 6px;
+        margin: 10px auto 0;
+        max-width: 280px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(100, 116, 139, .2);
+    }
+    .trophy-cup-progress-value {
+        height: 100%;
+        border-radius: inherit;
+        background: #3b82f6;
+        transition: width 280ms ease-out;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .achievement-hero.trophy-slide-next .trophy-display-cup,
+        .achievement-hero.trophy-slide-next .trophy-selected-title,
+        .achievement-hero.trophy-slide-next .trophy-selected-status,
+        .achievement-hero.trophy-slide-previous .trophy-display-cup,
+        .achievement-hero.trophy-slide-previous .trophy-selected-title,
+        .achievement-hero.trophy-slide-previous .trophy-selected-status,
+        .trophy-cup-progress-value { animation: none; transition: none; }
+    }
+    .trophy-data { display: none; }
+    .achievement-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 18px;
+    }
+    .achievement-stat {
+        padding: 10px 5px;
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, .55);
+    }
+    .achievement-stat strong { display: block; color: var(--text-bright); font-size: 1.1rem; }
+    .achievement-stat span { color: var(--text-muted); font-size: .72rem; }
+    .achievement-list-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        margin: 22px 0 12px;
+    }
+    .achievement-list-heading h3 { color: var(--text-bright); font-size: 1.05rem; }
+    .achievement-list-heading span { color: var(--text-muted); font-size: .78rem; }
+    .achievement-item {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 14px;
+        margin-bottom: 10px;
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        background: var(--card-bg);
+    }
+    .achievement-item.is-unlocked {
+        border-color: rgba(245, 158, 11, .35);
+        background: linear-gradient(110deg, rgba(245, 158, 11, .07), var(--card-bg) 45%);
+    }
+    .achievement-medal {
+        display: flex;
+        width: 40px;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        color: #64748b;
+        background: rgba(100, 116, 139, .12);
+        font-size: 1rem;
+    }
+    .is-unlocked .achievement-medal { color: #fbbf24; background: rgba(245, 158, 11, .14); }
+    .achievement-copy { min-width: 0; }
+    .achievement-copy h4 { color: var(--text-bright); font-size: .88rem; overflow-wrap: anywhere; }
+    .achievement-copy p { margin-top: 3px; color: var(--text-muted); font-size: .73rem; }
+    .achievement-progress-track {
+        height: 6px;
+        margin-top: 9px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(100, 116, 139, .2);
+    }
+    .achievement-progress-value {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #f59e0b, #fde68a);
+    }
+    .achievement-reward { color: #fbbf24; font-size: .75rem; font-weight: 800; white-space: nowrap; }
+    .achievement-progress-label { display: flex; justify-content: space-between; margin-top: 4px; color: var(--text-muted); font-size: .68rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="card achievement-hero" aria-label="کاپ‌ها">
+    <h2 class="trophy-app-title">کاپ حبیب</h2>
+    <div class="trophy-display">
+        <button type="button" class="trophy-nav-button trophy-previous" aria-label="نمایش کاپ قبلی">
+            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <div class="trophy-display-cup{% if not selected_trophy.earned %} is-locked{% endif %}">
+            <svg class="achievement-cup" viewBox="0 0 120 140" role="img"
+                 aria-label="{{ selected_trophy.title }}"
+                 style="--cup-light:{{ selected_trophy.light }}; --cup-dark:{{ selected_trophy.dark }};">
+        <defs>
+            <linearGradient id="cupGold" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0" stop-color="var(--cup-light)"/>
+                <stop offset=".48" stop-color="var(--cup-light)"/>
+                <stop offset="1" stop-color="var(--cup-dark)"/>
+            </linearGradient>
+            <linearGradient id="cupDark" x1="0" x2="1">
+                <stop offset="0" stop-color="var(--cup-dark)"/>
+                <stop offset=".5" stop-color="var(--cup-light)"/>
+                <stop offset="1" stop-color="var(--cup-dark)"/>
+            </linearGradient>
+        </defs>
+        <path d="M25 25H8v15c0 18 12 28 31 28v-9C26 57 19 51 18 41h7z" fill="url(#cupGold)"/>
+        <path d="M95 25h17v15c0 18-12 28-31 28v-9c13-2 20-8 21-18h-7z" fill="url(#cupGold)"/>
+        <path d="M25 14h70v30c0 25-13 43-35 47-22-4-35-22-35-47z" fill="url(#cupGold)" stroke="#ffe8a0" stroke-width="2"/>
+        <path d="m60 26 6.5 13.2 14.5 2.1-10.5 10.2 2.5 14.4L60 59.1l-13 6.8 2.5-14.4L39 37.3l14.5-2.1z" fill="{{ trophy_dark }}" opacity=".8"/>
+        <path d="M50 92h20v19H50z" fill="url(#cupDark)"/>
+        <path d="M38 109h44v10H38z" rx="4" fill="url(#cupGold)"/>
+        <path d="M29 120h62v12H29z" rx="5" fill="url(#cupDark)"/>
+            </svg>
+            <span class="trophy-lock" aria-label="قفل‌شده">
+                <i class="fa-solid fa-lock" aria-hidden="true"></i>
+            </span>
+        </div>
+        <button type="button" class="trophy-nav-button trophy-next" aria-label="نمایش کاپ بعدی">
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
+    </div>
+    <h2 class="trophy-selected-title" aria-live="polite">{{ selected_trophy.title }}</h2>
+    <p class="trophy-selected-status{% if not selected_trophy.earned %} is-locked{% endif %}" aria-live="polite">
+        {% if selected_trophy.earned %}این کاپ را گرفتی{% else %}{{ selected_trophy.xp_needed }} XP تا رسیدن{% endif %}
+    </p>
+    <div class="trophy-cup-progress" role="progressbar" aria-label="پیشرفت تا کاپ انتخاب‌شده"
+         aria-valuenow="{{ selected_trophy.progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+        <div class="trophy-cup-progress-value" style="width:{{ selected_trophy.progress_percent }}%;"></div>
+    </div>
+    <div class="trophy-data" aria-hidden="true">
+        {% for cup in trophy_cups %}
+        <span data-index="{{ forloop.counter0 }}" data-title="{{ cup.title }}"
+              data-earned="{% if cup.earned %}true{% else %}false{% endif %}"
+              data-xp-needed="{{ cup.xp_needed }}" data-progress="{{ cup.progress_percent }}"
+              data-light="{{ cup.light }}" data-dark="{{ cup.dark }}"></span>
+        {% endfor %}
+    </div>
+    <div class="achievement-stats">
+        <div class="achievement-stat">
+            <strong>{{ total_xp }}</strong>
+            <span>XP</span>
+        </div>
+        <div class="achievement-stat">
+            <strong>{{ unlocked_count }}</strong>
+            <span>بازشده</span>
+        </div>
+        <div class="achievement-stat">
+            <strong>{{ achievement_count }}</strong>
+            <span>دستاورد</span>
+        </div>
+    </div>
+</section>
+
+<div class="achievement-list-heading">
+    <h3>فهرست دستاوردها</h3>
+    <span>XP هر مورد فقط یک‌بار ثبت می‌شود</span>
+</div>
+{% for achievement in achievements %}
+    <article class="achievement-item{% if achievement.unlocked %} is-unlocked{% endif %}">
+        <div class="achievement-medal" aria-hidden="true">
+            <i class="fa-solid {% if achievement.unlocked %}fa-trophy{% else %}fa-lock{% endif %}"></i>
+        </div>
+        <div class="achievement-copy">
+            <h4>{{ achievement.title }}</h4>
+            <p>{{ achievement.description }}</p>
+            <div class="achievement-progress-track" role="progressbar"
+                 aria-valuenow="{{ achievement.progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="achievement-progress-value" style="width:{{ achievement.progress_percent }}%;"></div>
+            </div>
+            <div class="achievement-progress-label">
+                <span>{% if achievement.unlocked %}دستاورد باز شد{% else %}پیشرفت{% endif %}</span>
+                <span>{{ achievement.progress }} / {{ achievement.target }}</span>
+            </div>
+        </div>
+        <span class="achievement-reward">+{{ achievement.xp_reward }} XP</span>
+    </article>
+{% empty %}
+    <div class="card" style="text-align:center; color:var(--text-muted);">
+        برای شروع دست‌کم یک عادت فعال بساز.
+    </div>
+{% endfor %}
+<script>
+    (() => {
+        const cups = Array.from(document.querySelectorAll(".trophy-data span"));
+        if (!cups.length) return;
+
+        const previous = document.querySelector(".trophy-previous");
+        const next = document.querySelector(".trophy-next");
+        const display = document.querySelector(".trophy-display-cup");
+        const svg = document.querySelector(".achievement-cup");
+        const title = document.querySelector(".trophy-selected-title");
+        const status = document.querySelector(".trophy-selected-status");
+        const progress = document.querySelector(".trophy-cup-progress");
+        const progressValue = document.querySelector(".trophy-cup-progress-value");
+        const hero = document.querySelector(".achievement-hero");
+        let selectedIndex = cups.reduce((lastEarned, cup) =>
+            cup.dataset.earned === "true" ? Number(cup.dataset.index) : lastEarned, 0);
+
+        const selectCup = (index, direction = 0) => {
+            const nextIndex = Math.max(0, Math.min(cups.length - 1, index));
+            const changed = nextIndex !== selectedIndex;
+            selectedIndex = nextIndex;
+            const cup = cups[selectedIndex];
+            const earned = cup.dataset.earned === "true";
+            const percentage = Number(cup.dataset.progress);
+            display.classList.toggle("is-locked", !earned);
+            svg.style.setProperty("--cup-light", cup.dataset.light);
+            svg.style.setProperty("--cup-dark", cup.dataset.dark);
+            svg.setAttribute("aria-label", cup.dataset.title);
+            title.textContent = cup.dataset.title;
+            status.textContent = earned ? "این کاپ را گرفتی" : `${cup.dataset.xpNeeded} XP تا رسیدن`;
+            status.classList.toggle("is-locked", !earned);
+            progress.setAttribute("aria-valuenow", percentage);
+            progressValue.style.width = `${percentage}%`;
+            previous.disabled = selectedIndex === 0;
+            next.disabled = selectedIndex === cups.length - 1;
+            if (changed && direction) {
+                hero.classList.remove("trophy-slide-next", "trophy-slide-previous");
+                void hero.offsetWidth;
+                hero.classList.add(direction > 0 ? "trophy-slide-next" : "trophy-slide-previous");
+            }
+        };
+
+        previous.addEventListener("click", () => selectCup(selectedIndex - 1, -1));
+        next.addEventListener("click", () => selectCup(selectedIndex + 1, 1));
+        selectCup(selectedIndex);
+    })();
+</script>
+{% endblock %}
