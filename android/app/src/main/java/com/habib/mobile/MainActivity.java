@@ -16,10 +16,14 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -54,11 +58,11 @@ public class MainActivity extends Activity {
     private static final int TEXT = 0xfff8fafc;
     private static final int MUTED = 0xff94a3b8;
     private static final String[] MOTIVATIONAL_QUOTES = {
-            "عادت‌های تو هویتت را می‌سازند و آینده‌ات را شکل می‌دهند.",
+            "عادت های تو هویتت و میزان اراده ات و آینده ات رو تعین میکنن . کلمات این جمله با دقت انتخاب شده !",
             "آدم‌های موفق مرز روشنی بین کارهای قابل مذاکره و غیرقابل مذاکره دارند.",
-            "موفقیت هزاران قدم کوچک است، نه یک قدم بزرگ؛ همین قدم می‌تواند سرزدن به حبیب باشد :)",
+            "موفقیت هزاران قدم کوچیکه نه یک قدم بزرگ، این قدم میتونه سر زدن به حبیب باشه :)",
             "وقتی دربارهٔ برنامه‌هایت با دیگران حرف می‌زنی، گاهی انگیزهٔ انجامشان کمتر می‌شود.",
-            "خیلی‌ها کارهای زیادی را شروع می‌کنند؛ تفاوت در ادامه‌دادن است."
+            "داستان بازنده هارو که بشنوی متوجه میشی اوناهم خیلی کارهارو شروع کردن ولی نتونستن نگهش دارن !"
     };
     private static final int[] EVENT_COLORS = {
             0xffef4444, 0xfff59e0b, 0xff10b981, 0xff3b82f6, 0xffa855f7, 0xff94a3b8
@@ -72,6 +76,9 @@ public class MainActivity extends Activity {
     private int calendarMonthOffset;
     private int reminderFilter;
     private int quoteIndex;
+    private String selectedCalendarDateKey = "";
+    private final Handler quoteHandler = new Handler(Looper.getMainLooper());
+    private Runnable quoteAdvance;
     private String pendingNotificationTitle;
     private String pendingNotificationText;
     private long pendingNotificationDelay;
@@ -207,6 +214,7 @@ public class MainActivity extends Activity {
     }
 
     private void showApp() {
+        stopQuoteAdvance();
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
@@ -282,6 +290,7 @@ public class MainActivity extends Activity {
     }
 
     private void renderPage() {
+        stopQuoteAdvance();
         content.removeAllViews();
         if ("habits".equals(currentPage)) renderHabits();
         else if ("reminders".equals(currentPage)) renderReminders();
@@ -423,10 +432,41 @@ public class MainActivity extends Activity {
         TextView label = text("✦  الهام‌بخش امروز", 12, GREEN);
         label.setTypeface(null, Typeface.BOLD);
         quoteCard.addView(label);
+
+        LinearLayout quoteRow = new LinearLayout(this);
+        quoteRow.setGravity(Gravity.CENTER_VERTICAL);
+        quoteRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        Button previous = button("‹", 0xff263244);
+        Button next = button("›", 0xff263244);
+        previous.setTextSize(24);
+        next.setTextSize(24);
+        LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+        quoteRow.addView(previous, arrowParams);
         TextView quote = text(MOTIVATIONAL_QUOTES[quoteIndex], 14, TEXT);
         quote.setGravity(Gravity.CENTER);
         quote.setPadding(dp(2), dp(10), dp(2), dp(8));
-        quoteCard.addView(quote);
+        quote.setMaxLines(4);
+        quote.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1));
+        quoteRow.addView(quote);
+        quoteRow.addView(next, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        quoteCard.addView(quoteRow);
+        previous.setOnClickListener(v -> moveQuote(-1));
+        next.setOnClickListener(v -> moveQuote(1));
+        GestureDetector swipeDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent event) {
+                return true;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent start, MotionEvent end, float velocityX, float velocityY) {
+                float distance = end.getX() - start.getX();
+                if (Math.abs(distance) < dp(48) || Math.abs(velocityX) < dp(120)) return false;
+                moveQuote(distance < 0 ? 1 : -1);
+                return true;
+            }
+        });
+        quote.setOnTouchListener((view, event) -> swipeDetector.onTouchEvent(event));
         LinearLayout dots = new LinearLayout(this);
         dots.setGravity(Gravity.CENTER);
         for (int i = 0; i < MOTIVATIONAL_QUOTES.length; i++) {
@@ -442,6 +482,24 @@ public class MainActivity extends Activity {
         }
         quoteCard.addView(dots);
         content.addView(quoteCard, margin(0, 0, 0, 12));
+        quoteAdvance = () -> {
+            if (!"habits".equals(currentPage)) return;
+            quoteIndex = (quoteIndex + 1) % MOTIVATIONAL_QUOTES.length;
+            renderPage();
+        };
+        quoteHandler.postDelayed(quoteAdvance, 5000);
+    }
+
+    private void moveQuote(int offset) {
+        quoteIndex = (quoteIndex + offset + MOTIVATIONAL_QUOTES.length) % MOTIVATIONAL_QUOTES.length;
+        renderPage();
+    }
+
+    private void stopQuoteAdvance() {
+        if (quoteAdvance != null) {
+            quoteHandler.removeCallbacks(quoteAdvance);
+            quoteAdvance = null;
+        }
     }
 
     private void renderActivityGrid() {
@@ -518,16 +576,17 @@ public class MainActivity extends Activity {
     }
 
     private void renderReminders() {
+        renderCalendar();
         TextView heading = text("یادآوری‌ها", 20, TEXT);
         heading.setTypeface(null, Typeface.BOLD);
         content.addView(heading, margin(0, 0, 0, 12));
-        String[] filters = {"همه", "روزانه", "هفتگی", "ماهانه", "سالانه"};
+        String[] filters = {"روزانه", "هفتگی", "ماهانه", "سالانه"};
         LinearLayout filterOptions = new LinearLayout(this);
         filterOptions.setGravity(Gravity.CENTER_VERTICAL);
         filterOptions.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         for (int i = 0; i < filters.length; i++) {
-            final int selected = i;
-            Button option = button(filters[i], reminderFilter == i ? GREEN : 0xff263244);
+            final int selected = i + 1;
+            Button option = button(filters[i], reminderFilter == selected ? GREEN : 0xff263244);
             option.setTextSize(11);
             option.setMinHeight(dp(38));
             option.setPadding(dp(7), 0, dp(7), 0);
@@ -548,12 +607,13 @@ public class MainActivity extends Activity {
         notificationActions.addView(scheduleNotification, wrapMargin(0, 0, 0, 0));
         content.addView(notificationActions, margin(0, 0, 0, 12));
         scheduleNotification.setOnClickListener(v -> scheduleNotificationDialog());
+        if (reminderFilter == 0) return;
         ArrayList<DbHelper.Reminder> reminders = database.reminders();
         int displayedReminders = 0;
         for (DbHelper.Reminder reminder : reminders) {
-            if (reminderFilter > 0 && !matchesFrequency(reminder.frequency, reminderFilter)) continue;
+            if (!matchesFrequency(reminder.frequency, reminderFilter)) continue;
             displayedReminders++;
-            LinearLayout card = card();
+            LinearLayout reminderCard = card();
             LinearLayout row = new LinearLayout(this);
             row.setGravity(Gravity.CENTER_VERTICAL);
             TextView icon = text(reminderIcon(reminder.frequency), 28, GREEN);
@@ -563,12 +623,11 @@ public class MainActivity extends Activity {
             info.addView(text(reminder.title, 16, TEXT));
             info.addView(text(reminder.frequency + (reminder.time.isEmpty() ? "" : " • " + reminder.time), 12, MUTED), margin(0, 4, 0, 0));
             row.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
-            card.addView(row);
-            card.setOnClickListener(v -> reminderDialog(reminder));
-            content.addView(card, margin(0, 0, 0, 10));
+            reminderCard.addView(row);
+            reminderCard.setOnClickListener(v -> reminderDialog(reminder));
+            content.addView(reminderCard, margin(0, 0, 0, 10));
         }
-        if (displayedReminders == 0) content.addView(text("یادآوری‌ای برای این فیلتر ثبت نشده است.", 14, MUTED));
-        renderCalendar();
+        if (displayedReminders == 0) content.addView(text("یادآوری‌ای در این بازه ثبت نشده است.", 14, MUTED));
     }
 
     private boolean matchesFrequency(String frequency, int filter) {
@@ -587,7 +646,6 @@ public class MainActivity extends Activity {
     }
 
     private void renderCalendar() {
-        Locale persianLocale = new Locale("fa", "IR");
         Calendar month = Calendar.getInstance(new ULocale("fa_IR@calendar=persian"));
         month.add(Calendar.MONTH, calendarMonthOffset);
         month.set(Calendar.DAY_OF_MONTH, 1);
@@ -602,8 +660,16 @@ public class MainActivity extends Activity {
         titleRow.addView(monthTitle, new LinearLayout.LayoutParams(0, -2, 1));
         titleRow.addView(next, new LinearLayout.LayoutParams(dp(42), dp(40)));
         calendarCard.addView(titleRow);
-        previous.setOnClickListener(v -> { calendarMonthOffset--; renderPage(); });
-        next.setOnClickListener(v -> { calendarMonthOffset++; renderPage(); });
+        previous.setOnClickListener(v -> {
+            calendarMonthOffset--;
+            selectedCalendarDateKey = "";
+            renderPage();
+        });
+        next.setOnClickListener(v -> {
+            calendarMonthOffset++;
+            selectedCalendarDateKey = "";
+            renderPage();
+        });
 
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(7);
@@ -622,9 +688,23 @@ public class MainActivity extends Activity {
         int daysInMonth = month.getActualMaximum(Calendar.DAY_OF_MONTH);
         int cellCount = ((firstColumn + daysInMonth + 6) / 7) * 7;
         Calendar today = Calendar.getInstance(new ULocale("fa_IR@calendar=persian"));
+        Calendar selectedDate = selectedCalendarDateKey.isEmpty()
+                ? (Calendar) month.clone()
+                : Calendar.getInstance(new ULocale("fa_IR@calendar=persian"));
+        if (!selectedCalendarDateKey.isEmpty()) {
+            LocalDate selectedLocalDate = LocalDate.parse(selectedCalendarDateKey);
+            selectedDate.setTimeInMillis(selectedLocalDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        } else if (calendarMonthOffset == 0) {
+            selectedDate = (Calendar) today.clone();
+        }
+        if (selectedDate.get(Calendar.YEAR) != month.get(Calendar.YEAR)
+                || selectedDate.get(Calendar.MONTH) != month.get(Calendar.MONTH)) {
+            selectedDate = (Calendar) month.clone();
+            selectedCalendarDateKey = "";
+        }
         for (int cell = 0; cell < cellCount; cell++) {
             int day = cell - firstColumn + 1;
-            TextView dateCell;
+            View dateCell;
             if (day < 1 || day > daysInMonth) {
                 dateCell = text("", 12, MUTED);
             } else {
@@ -634,13 +714,37 @@ public class MainActivity extends Activity {
                         && date.get(Calendar.MONTH) == today.get(Calendar.MONTH)
                         && day == today.get(Calendar.DAY_OF_MONTH);
                 boolean isPast = date.before(today);
-                boolean hasEvent = hasCalendarEvent(date);
+                String dateKey = calendarDateKey(date);
+                boolean isSelected = dateKey.equals(selectedCalendarDateKey)
+                        || (selectedCalendarDateKey.isEmpty() && date.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR)
+                        && date.get(Calendar.MONTH) == selectedDate.get(Calendar.MONTH)
+                        && day == selectedDate.get(Calendar.DAY_OF_MONTH));
                 int textColor = isToday ? 0xff111827 : isPast ? 0xffe2e8f0 : 0xff111827;
                 int fillColor = isToday ? 0xfff59e0b : isPast ? 0xff475569 : 0xffffffff;
-                dateCell = text((isToday ? "●\n" : "") + persianDigits(day) + (hasEvent ? "\n•" : ""), 12, textColor);
-                dateCell.setGravity(Gravity.CENTER);
-                dateCell.setBackground(round(fillColor, 8, hasEvent ? GREEN : fillColor));
-                dateCell.setOnClickListener(v -> showCalendarEvents(date));
+                LinearLayout dayCell = new LinearLayout(this);
+                dayCell.setOrientation(LinearLayout.VERTICAL);
+                dayCell.setGravity(Gravity.CENTER);
+                TextView dayNumber = text(persianDigits(day), 12, textColor);
+                dayNumber.setGravity(Gravity.CENTER);
+                dayCell.addView(dayNumber, new LinearLayout.LayoutParams(-1, 0, 1));
+                LinearLayout eventDots = new LinearLayout(this);
+                eventDots.setGravity(Gravity.CENTER);
+                ArrayList<DbHelper.CalendarEvent> events = database.calendarEvents(dateKey);
+                for (int i = 0; i < Math.min(events.size(), 4); i++) {
+                    View dot = new View(this);
+                    dot.setBackground(round(events.get(i).color, 50, events.get(i).color));
+                    LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(5), dp(5));
+                    dotParams.setMargins(dp(1), 0, dp(1), dp(2));
+                    eventDots.addView(dot, dotParams);
+                }
+                dayCell.addView(eventDots, new LinearLayout.LayoutParams(-1, dp(7)));
+                dayCell.setBackground(round(fillColor, 8, isSelected ? GREEN : fillColor));
+                dayCell.setContentDescription(persianDigits(day) + "، " + events.size() + " رویداد");
+                dayCell.setOnClickListener(v -> {
+                    selectedCalendarDateKey = dateKey;
+                    renderPage();
+                });
+                dateCell = dayCell;
             }
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
             params.width = 0;
@@ -651,75 +755,68 @@ public class MainActivity extends Activity {
         }
         calendarCard.addView(grid, margin(0, 8, 0, 0));
         content.addView(calendarCard, margin(0, 0, 0, 14));
+        if (selectedCalendarDateKey.isEmpty()) selectedCalendarDateKey = calendarDateKey(selectedDate);
+        renderSelectedCalendarDay(selectedDate, selectedCalendarDateKey);
     }
 
-    private boolean hasCalendarEvent(Calendar date) {
-        if (!database.calendarEvents(calendarDateKey(date)).isEmpty()) return true;
-        for (DbHelper.Reminder reminder : database.reminders()) {
-            String frequency = reminder.frequency;
-            if (frequency.contains("روز") || frequency.toLowerCase(Locale.ROOT).contains("daily")) return true;
-            if ((frequency.contains("هفت") || frequency.toLowerCase(Locale.ROOT).contains("weekly")) && date.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY) return true;
-            if ((frequency.contains("ماه") || frequency.toLowerCase(Locale.ROOT).contains("monthly")) && date.get(Calendar.DAY_OF_MONTH) == 1) return true;
-            if ((frequency.contains("سال") || frequency.toLowerCase(Locale.ROOT).contains("yearly")) && date.get(Calendar.MONTH) == 8 && date.get(Calendar.DAY_OF_MONTH) == 15) return true;
+    private void renderSelectedCalendarDay(Calendar date, String dateKey) {
+        LinearLayout dayCard = card();
+        TextView dayTitle = text("رویدادهای " + persianDigits(date.get(Calendar.DAY_OF_MONTH)) + " "
+                + persianMonthName(date) + " " + persianDigits(date.get(Calendar.YEAR)), 16, TEXT);
+        dayTitle.setTypeface(null, Typeface.BOLD);
+        dayCard.addView(dayTitle);
+        ArrayList<DbHelper.CalendarEvent> events = database.calendarEvents(dateKey);
+        if (events.isEmpty()) {
+            dayCard.addView(text("برای این روز رویدادی ثبت نشده است.", 13, MUTED), margin(0, 8, 0, 4));
+        } else {
+            for (DbHelper.CalendarEvent event : events) {
+                LinearLayout row = new LinearLayout(this);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+                View colorDot = new View(this);
+                colorDot.setBackground(round(event.color, 50, event.color));
+                row.addView(colorDot, new LinearLayout.LayoutParams(dp(12), dp(12)));
+                TextView eventTitle = text(event.title, 14, event.color);
+                eventTitle.setMaxLines(2);
+                eventTitle.setEllipsize(TextUtils.TruncateAt.END);
+                LinearLayout.LayoutParams eventParams = new LinearLayout.LayoutParams(0, -2, 1);
+                eventParams.setMargins(dp(8), 0, dp(8), 0);
+                row.addView(eventTitle, eventParams);
+                Button delete = button("حذف", 0xff7f1d1d);
+                delete.setTextSize(10);
+                row.addView(delete, new LinearLayout.LayoutParams(dp(54), dp(36)));
+                delete.setOnClickListener(v -> {
+                    database.deleteCalendarEvent(event.id);
+                    renderPage();
+                });
+                dayCard.addView(row, margin(0, 8, 0, 0));
+            }
         }
-        return false;
-    }
-
-    private void showCalendarEvents(Calendar date) {
-        String dateKey = calendarDateKey(date);
-        Dialog dialog = new Dialog(this);
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(20), dp(20), dp(20), dp(20));
-        page.setBackgroundColor(BG);
-
-        LinearLayout titleRow = new LinearLayout(this);
-        titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        titleRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        TextView title = text(persianDigits(date.get(Calendar.DAY_OF_MONTH)) + " " + persianMonthName(date)
-                + " " + persianDigits(date.get(Calendar.YEAR)), 19, TEXT);
-        title.setTypeface(null, Typeface.BOLD);
-        titleRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        Button close = button("×", 0xff263244);
-        titleRow.addView(close, new LinearLayout.LayoutParams(dp(42), dp(42)));
-        page.addView(titleRow);
-        close.setOnClickListener(v -> dialog.dismiss());
-
-        ScrollView scroll = new ScrollView(this);
-        LinearLayout eventList = new LinearLayout(this);
-        eventList.setOrientation(LinearLayout.VERTICAL);
-        eventList.setPadding(0, dp(12), 0, dp(8));
-        scroll.addView(eventList);
-        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        EditText eventTitle = field("عنوان رویداد (مثلاً اتمام بیمه ماشین)", "", InputType.TYPE_CLASS_TEXT);
-        page.addView(eventTitle, margin(0, 8, 0, 8));
-
+        EditText eventTitle = field("عنوان رویداد برای این روز", "", InputType.TYPE_CLASS_TEXT);
+        dayCard.addView(eventTitle, margin(0, 12, 0, 8));
         LinearLayout colorPicker = new LinearLayout(this);
         colorPicker.setGravity(Gravity.CENTER);
         colorPicker.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         final int[] selectedColor = {EVENT_COLORS[0]};
-        ArrayList<Button> colorButtons = new ArrayList<>();
+        ArrayList<View> colorDots = new ArrayList<>();
         for (int color : EVENT_COLORS) {
-            Button colorButton = new Button(this);
-            colorButton.setMinWidth(0);
-            colorButton.setMinimumWidth(0);
-            colorButton.setText("");
-            colorButton.setBackground(round(color, 100, color == selectedColor[0] ? TEXT : color));
-            LinearLayout.LayoutParams colorParams = new LinearLayout.LayoutParams(dp(34), dp(34));
-            colorParams.setMargins(dp(6), dp(4), dp(6), dp(4));
-            colorPicker.addView(colorButton, colorParams);
-            colorButtons.add(colorButton);
-            colorButton.setOnClickListener(v -> {
+            View colorDot = new View(this);
+            colorDot.setBackground(round(color, 50, color == selectedColor[0] ? TEXT : color));
+            LinearLayout.LayoutParams colorParams = new LinearLayout.LayoutParams(dp(30), dp(30));
+            colorParams.setMargins(dp(6), dp(3), dp(6), dp(3));
+            colorPicker.addView(colorDot, colorParams);
+            colorDots.add(colorDot);
+            colorDot.setOnClickListener(v -> {
                 selectedColor[0] = color;
-                for (int i = 0; i < colorButtons.size(); i++) {
-                    int itemColor = EVENT_COLORS[i];
-                    colorButtons.get(i).setBackground(round(itemColor, 100, itemColor == selectedColor[0] ? TEXT : itemColor));
+                for (int i = 0; i < colorDots.size(); i++) {
+                    int dotColor = EVENT_COLORS[i];
+                    colorDots.get(i).setBackground(round(dotColor, 50, dotColor == selectedColor[0] ? TEXT : dotColor));
                 }
             });
         }
-        page.addView(colorPicker);
+        dayCard.addView(colorPicker, margin(0, 2, 0, 0));
         Button addEvent = button("افزودن رویداد", GREEN);
-        page.addView(addEvent, margin(0, 8, 0, 0));
+        dayCard.addView(addEvent, margin(0, 8, 0, 0));
         addEvent.setOnClickListener(v -> {
             String value = eventTitle.getText().toString().trim();
             if (value.isEmpty()) {
@@ -727,66 +824,9 @@ public class MainActivity extends Activity {
                 return;
             }
             database.addCalendarEvent(dateKey, value, selectedColor[0]);
-            eventTitle.setText("");
-            populateCalendarDayEvents(eventList, dateKey);
             renderPage();
         });
-
-        for (DbHelper.Reminder reminder : database.reminders()) {
-            String frequency = reminder.frequency;
-            boolean occurs = frequency.contains("روز") || frequency.toLowerCase(Locale.ROOT).contains("daily")
-                    || ((frequency.contains("هفت") || frequency.toLowerCase(Locale.ROOT).contains("weekly")) && date.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY)
-                    || ((frequency.contains("ماه") || frequency.toLowerCase(Locale.ROOT).contains("monthly")) && date.get(Calendar.DAY_OF_MONTH) == 1)
-                    || ((frequency.contains("سال") || frequency.toLowerCase(Locale.ROOT).contains("yearly")) && date.get(Calendar.MONTH) == 8 && date.get(Calendar.DAY_OF_MONTH) == 15);
-            if (occurs) {
-                TextView reminderText = text(reminderIcon(reminder.frequency) + "  " + reminder.title
-                        + (reminder.time.isEmpty() ? "" : " • " + reminder.time), 14, TEXT);
-                reminderText.setTag("reminder");
-                eventList.addView(reminderText, margin(0, 5, 0, 5));
-            }
-        }
-        populateCalendarDayEvents(eventList, dateKey);
-        dialog.setContentView(page);
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-            dialog.getWindow().setLayout(-1, -1);
-        }
-        dialog.show();
-        if (dialog.getWindow() != null) dialog.getWindow().setLayout(-1, -1);
-    }
-
-    private void populateCalendarDayEvents(LinearLayout eventList, String dateKey) {
-        for (int i = eventList.getChildCount() - 1; i >= 0; i--) {
-            if (!"reminder".equals(eventList.getChildAt(i).getTag())) eventList.removeViewAt(i);
-        }
-        ArrayList<DbHelper.CalendarEvent> events = database.calendarEvents(dateKey);
-        if (events.isEmpty() && eventList.getChildCount() == 0) {
-            TextView empty = text("برای این روز رویدادی ثبت نشده است.", 14, MUTED);
-            empty.setTag("empty");
-            eventList.addView(empty, margin(0, 10, 0, 10));
-        }
-        for (DbHelper.CalendarEvent event : events) {
-            LinearLayout row = new LinearLayout(this);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-            View colorDot = new View(this);
-            colorDot.setBackground(round(event.color, 50, event.color));
-            row.addView(colorDot, new LinearLayout.LayoutParams(dp(14), dp(14)));
-            TextView title = text(event.title, 14, TEXT);
-            title.setMaxLines(3);
-            title.setEllipsize(TextUtils.TruncateAt.END);
-            row.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-            Button delete = button("حذف", 0xff7f1d1d);
-            delete.setTextSize(10);
-            row.addView(delete, wrapMargin(8, 0, 0, 0));
-            row.setTag(event.id);
-            delete.setOnClickListener(v -> {
-                database.deleteCalendarEvent(event.id);
-                populateCalendarDayEvents(eventList, dateKey);
-                renderPage();
-            });
-            eventList.addView(row, margin(0, 5, 0, 5));
-        }
+        content.addView(dayCard, margin(0, 0, 0, 14));
     }
 
     private String calendarDateKey(Calendar date) {
