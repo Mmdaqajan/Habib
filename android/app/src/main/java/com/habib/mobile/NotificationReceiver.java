@@ -18,9 +18,12 @@ public final class NotificationReceiver extends BroadcastReceiver {
         manager.createNotificationChannel(new NotificationChannel(CHANNEL_ID, "یادآوری‌های حبیب",
                 NotificationManager.IMPORTANCE_DEFAULT));
         boolean birthday = BirthdayReminderScheduler.ACTION_BIRTHDAY.equals(intent.getAction());
-        String title = birthday ? "تولدت مبارک!" : intent.getStringExtra("title");
+        boolean birthdayAdvance = BirthdayReminderScheduler.ACTION_BIRTHDAY_ADVANCE.equals(intent.getAction());
+        String title = birthday ? "تولدت مبارک!" : birthdayAdvance
+                ? "یادآوری تولد" : intent.getStringExtra("title");
         String birthDate = intent.getStringExtra("birth_date");
-        String text = birthday ? birthdayMessage(birthDate) : intent.getStringExtra("text");
+        String text = birthday ? birthdayMessage(birthDate) : birthdayAdvance
+                ? "یک هفته تا تولدت باقی مانده است." : intent.getStringExtra("text");
         Notification notification = new Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title == null ? "Habib" : title)
