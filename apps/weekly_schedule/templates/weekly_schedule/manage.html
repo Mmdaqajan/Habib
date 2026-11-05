@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}{% include 'weekly_schedule/_styles.html' %}{% endblock %}
+
+{% block content %}
+<section class="card weekly-form-card">
+    <h2 class="weekly-title">ویرایش برنامه هفتگی</h2>
+    {% if activities %}
+        <form method="get">
+            <label for="activity-select">فعالیت ثبت‌شده</label>
+            <select id="activity-select" name="activity" class="form-control">
+                <option value="">انتخاب فعالیت</option>
+                {% for activity in activities %}
+                    <option value="{{ activity.pk }}" {% if selected.pk == activity.pk %}selected{% endif %}>
+                        {{ activity.name }}
+                    </option>
+                {% endfor %}
+            </select>
+            <div class="weekly-actions">
+                <button class="btn btn-secondary" type="submit">انتخاب</button>
+            </div>
+        </form>
+        {% if selected %}
+            <div class="weekly-actions">
+                <a class="btn btn-primary" href="{% url 'weekly_schedule:edit_activity' selected.pk %}">ویرایش فعالیت</a>
+                <form method="post" action="{% url 'weekly_schedule:delete_activity' selected.pk %}"
+                      onsubmit="return confirm('این فعالیت حذف شود؟')">
+                    {% csrf_token %}
+                    <button class="btn btn-danger" type="submit">حذف فعالیت</button>
+                </form>
+            </div>
+        {% endif %}
+    {% else %}
+        <p class="weekly-description">هنوز فعالیتی ثبت نشده است.</p>
+        <a class="btn btn-primary" href="{% url 'weekly_schedule:add_activity' %}">افزودن فعالیت</a>
+    {% endif %}
+    <div class="weekly-actions">
+        <a class="btn btn-secondary" href="{% url 'weekly_schedule:weekly_schedule' %}">بازگشت به برنامه</a>
+    </div>
+</section>
+{% endblock %}

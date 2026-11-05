@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     # Habib Modular Apps
     'apps.habits',
     'apps.alerts',
+    'apps.weekly_schedule',
     'apps.users',
     'apps.recovery',
 ]

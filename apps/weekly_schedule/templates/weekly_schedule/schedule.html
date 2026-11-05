@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}{% include 'weekly_schedule/_styles.html' %}{% endblock %}
+
+{% block content %}
+
+
+<section class="card">
+    <h2 class="weekly-title">برنامه هفتگی</h2>
+
+    <div class="schedule-scroll">
+        <div class="timeline-content">
+            <div class="timeline-axis">
+                <div class="timeline-spacer">روز / ساعت</div>
+                <div class="time-track">
+                    {% for tick in ticks %}
+                        <span class="time-tick" style="right:{{ tick.offset }}%">{{ tick.label }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% for row in rows %}
+                <div class="timeline-row">
+                    <div class="day-label">{{ row.name }}</div>
+                    <div class="day-track">
+                        {% for slot in row.slots %}
+                            <span class="quarter-slot{% if slot.is_hour %} hour-mark{% endif %}"
+                                  style="right:{{ slot.offset }}%"></span>
+                        {% endfor %}
+                        {% for block in row.blocks %}
+                            <div class="schedule-block{% if block.is_free %} free-block{% endif %}"
+                                 style="{{ block.style }}"
+                                 {% if not block.is_free %}title="{{ block.name }}"{% endif %}>
+                                {% if not block.is_free %}{{ block.name }}{% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="legend">
+        <span class="legend-item"><span class="legend-color" style="background:#818cf8"></span>کار</span>
+        <span class="legend-item"><span class="legend-color" style="background:#059669"></span>باشگاه</span>
+        <span class="legend-item"><span class="legend-color" style="background:transparent;border:1px solid #3b82f6"></span>فاصله کمتر از ۴ ساعت</span>
+        <span class="legend-item"><span class="legend-color" style="background:transparent;border:1px solid #10b981"></span>فاصله بیشتر از ۴ ساعت</span>
+        {% for activity in activities %}
+            <span class="legend-item">
+                <span class="legend-color" style="background:{{ activity.color }}"></span>
+                {{ activity.name }}
+            </span>
+        {% endfor %}
+    </div>
+</section>
+
+
+<section class="card">
+    <p class="weekly-description">
+        بیداری {{ schedule.wake_time|time:"H:i" }} تا خواب {{ schedule.sleep_time|time:"H:i" }}.
+        هر روز از زمان بیداری آغاز می‌شود؛ زمان‌های پس از نیمه‌شب در همان ردیف روز نمایش داده می‌شوند.
+    </p>
+    <div class="weekly-actions">
+        <a class="btn btn-secondary" href="{% url 'weekly_schedule:edit_sleep' %}">ویرایش خواب و کار/باشگاه</a>
+        <a class="btn btn-primary" href="{% url 'weekly_schedule:add_activity' %}">＋ افزودن فعالیت</a>
+        <a class="btn btn-secondary" href="{% url 'weekly_schedule:manage' %}">ویرایش برنامه هفتگی</a>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,83 @@
+<style>
+    .weekly-title { color: var(--text-bright); margin-bottom: 8px; }
+    .weekly-description { line-height: 1.8; margin-bottom: 16px; }
+    .weekly-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+    .weekly-actions .btn { flex: 1 1 140px; text-decoration: none; }
+    .weekly-form-card { max-width: 760px; margin-inline: auto; }
+    .weekly-form-card h3 { color: var(--text-bright); margin: 14px 0 8px; }
+    .weekly-form-card label { display: block; margin: 10px 0 5px; }
+    .weekly-form-card input[type="time"],
+    .weekly-form-card input[type="text"],
+    .weekly-form-card select {
+        width: 100%; padding: 10px; color: var(--text-bright);
+        background: #0b0f17; border: 1px solid var(--card-border);
+        border-radius: 9px; direction: ltr; text-align: left;
+    }
+    .weekly-form-card .time-24h { font-variant-numeric: tabular-nums; }
+    .time-help { display: block; margin-top: 5px; color: var(--text-muted); font-size: .75rem; }
+    .form-errors, .field-errors { color: #fca5a5; font-size: .85rem; margin-top: 5px; }
+    .weekday-setup-list { display: grid; gap: 8px; }
+    .weekday-setup { padding: 10px; border: 1px solid var(--card-border); border-radius: 12px; }
+    .weekday-setup h4 { color: var(--text-bright); margin-bottom: 8px; }
+    .schedule-toggle-row { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+    .schedule-toggle-row label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+    .activity-time-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--card-border); }
+    .activity-time-row[hidden] { display: none; }
+    .activity-time-row strong { display: block; color: var(--text-bright); font-size: .85rem; }
+    .timeline-content { width: 100%; }
+    .timeline-axis, .timeline-row {
+        display: grid; grid-template-columns: 54px minmax(0, 1fr);
+        align-items: stretch; direction: rtl; width: 100%;
+    }
+    .timeline-axis { height: 32px; }
+    .timeline-spacer, .day-label { min-width: 0; }
+    .timeline-spacer { color: var(--text-muted); font-size: .64rem; }
+    .time-track, .day-track { position: relative; min-width: 0; width: 100%; }
+    .time-track { height: 100%; }
+    .time-tick {
+        position: absolute; top: 0; width: 42px;
+        text-align: right; color: var(--text-muted); font-size: .62rem;
+        direction: ltr; white-space: nowrap;
+    }
+    .timeline-row { min-height: 44px; border-top: 1px solid var(--card-border); }
+    .day-label {
+        display: flex; align-items: center; color: var(--text-bright);
+        font-size: .68rem; font-weight: 700; white-space: nowrap;
+    }
+    .day-track {
+        min-height: 44px;
+        background: transparent;
+        overflow: hidden;
+    }
+    .quarter-slot {
+        position: absolute; top: 0; bottom: 0; width: 0;
+        border-left: 1px dashed rgba(255,255,255,.17);
+    }
+    .quarter-slot.hour-mark { border-left: 1px solid rgba(255,255,255,.38); }
+    .schedule-block {
+        position: absolute; top: 4px; bottom: 4px; z-index: 1;
+        border-radius: 4px; padding: 3px 1px; overflow: hidden;
+        color: #fff; font-size: .58rem; line-height: 1.2;
+        text-align: center; white-space: normal; overflow-wrap: anywhere;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+    }
+    .schedule-block.free-block {
+        z-index: 0; color: transparent; opacity: 1;
+        background: transparent !important; border: 1px solid;
+        box-shadow: none; pointer-events: none;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; font-size: .8rem; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .legend-color { width: 13px; height: 13px; border-radius: 4px; }
+    .weekday-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0 12px; }
+    .weekday-checks label { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--text-main); }
+    .day-time-fields { border-top: 1px solid var(--card-border); padding-top: 8px; margin-top: 8px; }
+    .day-time-fields h4 { color: var(--text-bright); margin-bottom: 6px; }
+    .day-time-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 360px) {
+        .weekday-checks { grid-template-columns: 1fr; }
+        .timeline-axis, .timeline-row { grid-template-columns: 48px minmax(0, 1fr); }
+        .time-tick { font-size: .56rem; width: 36px; }
+        .day-label { font-size: .61rem; }
+    }
+</style>

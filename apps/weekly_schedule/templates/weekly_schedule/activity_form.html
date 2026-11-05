@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}{% include 'weekly_schedule/_styles.html' %}{% endblock %}
+
+{% block content %}
+<section class="card weekly-form-card">
+    <h2 class="weekly-title">{{ title }}</h2>
+    <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+        <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+        {{ form.name }}
+        {% if form.name.errors %}<div class="field-errors">{{ form.name.errors }}</div>{% endif %}
+
+        <label>{{ form.days.label }}</label>
+        <div class="weekday-checks">
+            {% for checkbox in form.days %}
+                <label>{{ checkbox.tag }}{{ checkbox.choice_label }}</label>
+            {% endfor %}
+        </div>
+        {% if form.days.errors %}<div class="field-errors">{{ form.days.errors }}</div>{% endif %}
+
+        {% for day in day_forms %}
+            <div class="day-time-fields" data-weekday="{{ day.weekday }}">
+                <h4>{{ day.day_name }}</h4>
+                <div class="day-time-pair">
+                    <div>
+                        <label for="{{ day.start.id_for_label }}">شروع</label>
+                        {{ day.start }}
+                        {% if day.start.errors %}<div class="field-errors">{{ day.start.errors }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ day.end.id_for_label }}">پایان</label>
+                        {{ day.end }}
+                        {% if day.end.errors %}<div class="field-errors">{{ day.end.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="weekly-actions">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+            <a class="btn btn-secondary" href="{% url 'weekly_schedule:weekly_schedule' %}">بازگشت</a>
+        </div>
+    </form>
+</section>
+<script>
+    const weekdayCheckboxes = document.querySelectorAll('input[name="days"]');
+    const dayTimeFields = document.querySelectorAll('[data-weekday]');
+
+    function updateDayTimeFields() {
+        dayTimeFields.forEach((section) => {
+            const checkbox = document.querySelector(
+                `input[name="days"][value="${section.dataset.weekday}"]`
+            );
+            section.hidden = !checkbox || !checkbox.checked;
+        });
+    }
+
+    weekdayCheckboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', updateDayTimeFields);
+    });
+    updateDayTimeFields();
+</script>
+{% endblock %}

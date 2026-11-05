@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}{% include 'weekly_schedule/_styles.html' %}{% endblock %}
+
+{% block content %}
+<section class="card weekly-form-card">
+    <h2 class="weekly-title">{{ title }}</h2>
+    <p class="weekly-description">
+        زمان‌ها را با قالب ۲۴ساعته وارد کنید؛ مانند 22:00. مدت خواب نمی‌تواند بیشتر از ۱۲ ساعت باشد.
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="form-errors">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="day-time-pair">
+            <div>
+                <label for="{{ form.sleep_time.id_for_label }}">{{ form.sleep_time.label }}</label>
+                {{ form.sleep_time }}
+                <small class="time-help">قالب ۲۴ساعته؛ پیش‌فرض 22:00</small>
+                {% if form.sleep_time.errors %}<div class="field-errors">{{ form.sleep_time.errors }}</div>{% endif %}
+            </div>
+            <div>
+                <label for="{{ form.wake_time.id_for_label }}">{{ form.wake_time.label }}</label>
+                {{ form.wake_time }}
+                <small class="time-help">قالب ۲۴ساعته؛ پیش‌فرض 06:00</small>
+                {% if form.wake_time.errors %}<div class="field-errors">{{ form.wake_time.errors }}</div>{% endif %}
+            </div>
+        </div>
+
+        <h3>ساعت کار و باشگاه (اختیاری)</h3>
+        <div class="weekday-setup-list">
+            {% for day in form.day_rows %}
+                <article class="weekday-setup">
+                    <h4>{{ day.name }}</h4>
+                    <div class="schedule-toggle-row">
+                        <label>{{ day.work_enabled }} سر کار می‌روم</label>
+                        <label>{{ day.gym_enabled }} به باشگاه می‌روم</label>
+                    </div>
+                    <div class="activity-time-row" data-activity-fields
+                         data-enabled="{{ day.work_enabled.id_for_label }}"
+                         data-activity="work">
+                        <strong>ساعت کار</strong>
+                        <div class="day-time-pair">
+                            <div>
+                                <label for="{{ day.work_start.id_for_label }}">شروع</label>
+                                {{ day.work_start }}
+                                {% if day.work_start.errors %}<div class="field-errors">{{ day.work_start.errors }}</div>{% endif %}
+                            </div>
+                            <div>
+                                <label for="{{ day.work_end.id_for_label }}">پایان</label>
+                                {{ day.work_end }}
+                                {% if day.work_end.errors %}<div class="field-errors">{{ day.work_end.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="activity-time-row" data-activity-fields
+                         data-enabled="{{ day.gym_enabled.id_for_label }}"
+                         data-activity="gym">
+                        <strong>ساعت باشگاه</strong>
+                        <div class="day-time-pair">
+                            <div>
+                                <label for="{{ day.gym_start.id_for_label }}">شروع</label>
+                                {{ day.gym_start }}
+                                {% if day.gym_start.errors %}<div class="field-errors">{{ day.gym_start.errors }}</div>{% endif %}
+                            </div>
+                            <div>
+                                <label for="{{ day.gym_end.id_for_label }}">پایان</label>
+                                {{ day.gym_end }}
+                                {% if day.gym_end.errors %}<div class="field-errors">{{ day.gym_end.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+        <div class="weekly-actions">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+            {% if is_edit %}<a class="btn btn-secondary" href="{% url 'weekly_schedule:weekly_schedule' %}">بازگشت</a>{% endif %}
+        </div>
+    </form>
+</section>
+<script>
+    const activityTimeRows = document.querySelectorAll('[data-activity-fields]');
+
+    function updateActivityTimeRows() {
+        activityTimeRows.forEach((row) => {
+            const checkbox = document.getElementById(row.dataset.enabled);
+            const inputs = row.querySelectorAll('input.time-24h');
+            row.hidden = !checkbox || !checkbox.checked;
+            if (checkbox && checkbox.checked && inputs[0] && inputs[1]) {
+                if (!inputs[0].value) inputs[0].value = '07:00';
+                if (!inputs[1].value) inputs[1].value = '08:00';
+            }
+        });
+    }
+
+    document.querySelectorAll('.schedule-toggle').forEach((checkbox) => {
+        checkbox.addEventListener('change', updateActivityTimeRows);
+    });
+    updateActivityTimeRows();
+</script>
+{% endblock %}
