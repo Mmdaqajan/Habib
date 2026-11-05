@@ -1,6 +1,17 @@
 {% extends 'base.html' %}
 
 {% block extra_head %}
+<script>
+    const pageNavigation = performance.getEntriesByType
+        ? performance.getEntriesByType('navigation')[0]
+        : null;
+    const isPageRefresh = pageNavigation
+        ? pageNavigation.type === 'reload'
+        : performance.navigation && performance.navigation.type === 1;
+    if (isPageRefresh && new URLSearchParams(window.location.search).has('date')) {
+        window.location.replace("{% url 'home' %}");
+    }
+</script>
 <style>
     /* Modern Carousel Banner */
     .quote-banner {
@@ -20,7 +31,28 @@
         min-height: 60px;
         display: flex;
         align-items: center;
+        text-align: right;
+        direction: rtl;
     }
+    .quote-controls {
+        display: flex;
+        align-items: center;
+        direction: ltr;
+        gap: 8px;
+    }
+    .quote-text { flex: 1; min-width: 0; }
+    .quote-arrow {
+        flex: 0 0 38px;
+        width: 38px;
+        height: 38px;
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--text-bright);
+        font-size: 1.4rem;
+        cursor: pointer;
+    }
+    .quote-arrow:focus-visible, .dot:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
     .quote-dots {
         display: flex;
         justify-content: center;
@@ -31,6 +63,8 @@
         width: 8px;
         height: 8px;
         border-radius: 50%;
+        border: 0;
+        padding: 0;
         background: rgba(255, 255, 255, 0.15);
         cursor: pointer;
         transition: all 0.3s;
@@ -49,6 +83,75 @@
         align-items: center;
         margin-bottom: 14px;
     }
+    .habits-heading {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+    .habit-date-help {
+        display: inline-flex;
+        width: 23px;
+        height: 23px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        color: #60a5fa;
+        background: transparent;
+        font-size: 1rem;
+        cursor: pointer;
+    }
+    .habit-date-help:focus-visible, .habit-date-nav a:focus-visible {
+        outline: 2px solid #60a5fa;
+        outline-offset: 2px;
+    }
+    .habit-date-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px;
+        margin: -4px 0 14px;
+        border: 1px solid rgba(96, 165, 250, .25);
+        border-radius: 12px;
+        background: rgba(59, 130, 246, .08);
+    }
+    .habit-date-nav[hidden] { display: none; }
+    .habit-date-nav [hidden] { display: none; }
+    .habit-date-nav a, .habit-date-nav button {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 6px 9px;
+        border: 1px solid var(--card-border);
+        border-radius: 9px;
+        color: var(--text-bright);
+        background: rgba(15, 23, 42, .8);
+        font: inherit;
+        font-size: .78rem;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .habit-date-nav button:disabled { opacity: .4; cursor: default; }
+    .habit-selected-date { color: #93c5fd; font-size: .82rem; font-weight: 700; text-align: center; }
+    .habit-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+        gap: 8px;
+        margin-top: 14px;
+    }
+    .habit-stat {
+        padding: 10px 8px;
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, .55);
+        text-align: center;
+    }
+    .habit-stat strong { display: block; color: var(--text-bright); font-size: 1rem; }
+    .habit-stat span { display: block; margin-top: 3px; color: var(--text-muted); font-size: .72rem; }
     .habit-item {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
@@ -98,7 +201,7 @@
     .habit-action {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 7px;
     }
     .checkbox-custom {
         width: 32px;
@@ -117,6 +220,25 @@
         border-color: var(--accent-green);
         color: #fff;
         box-shadow: 0 0 12px var(--glow-green);
+    }
+    .checkbox-custom, .skip-custom {
+        flex: 0 0 32px;
+        padding: 0;
+        color: var(--text-muted);
+    }
+    .skip-custom {
+        width: 32px;
+        height: 32px;
+        border: 2px solid var(--card-border);
+        border-radius: 10px;
+        background: rgba(11, 15, 23, .6);
+        cursor: pointer;
+        transition: all .2s;
+    }
+    .skip-custom.skipped {
+        color: #f87171;
+        border-color: #ef4444;
+        background: rgba(239, 68, 68, .12);
     }
 
     /* GitHub Chart Matrix */
@@ -181,21 +303,48 @@
     <div style="font-size: 0.78rem; color: var(--accent-green); font-weight: 800; margin-bottom: 8px; display:flex; align-items:center; gap:6px;">
         <i class="fa-solid fa-lightbulb"></i> الهام‌بخش امروز:
     </div>
-    <div class="quote-text" id="quoteText">{{ quotes.0 }}</div>
+    <div class="quote-controls">
+        <button type="button" class="quote-arrow" aria-label="جمله قبلی" onclick="moveQuote(-1)">‹</button>
+        <div class="quote-text" id="quoteText">{{ quotes.0 }}</div>
+        <button type="button" class="quote-arrow" aria-label="جمله بعدی" onclick="moveQuote(1)">›</button>
+    </div>
     <div class="quote-dots">
         {% for q in quotes %}
-        <div class="dot {% if forloop.first %}active{% endif %}" onclick="setQuote({{ forloop.counter0 }})"></div>
+        <button type="button" class="dot {% if forloop.first %}active{% endif %}" aria-label="نمایش جمله {{ forloop.counter }}" onclick="setQuote({{ forloop.counter0 }})"></button>
         {% endfor %}
     </div>
 </div>
 
 <!-- Habits Section -->
 <div class="habits-header">
-    <h3 style="color: var(--text-bright); font-size: 1.15rem; font-weight:800;">عادت‌های امروز</h3>
-    <span style="font-size: 0.85rem; color: var(--accent-lime); background: rgba(52, 211, 153, 0.1); padding: 4px 10px; border-radius: 12px; font-weight:700;">
+    <div class="habits-heading">
+        <h3 id="habitDateHeading" style="color: var(--text-bright); font-size: 1.15rem; font-weight:800;">
+            عادت‌های {{ selected_date_label }}
+        </h3>
+        <button type="button" class="habit-date-help" aria-label="تغییر روز عادت‌ها"
+                aria-controls="habitDateNavigation" aria-expanded="false"
+                onclick="toggleHabitDateNavigation(this)">
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+        </button>
+    </div>
+    <span id="habitCompletionSummary" style="font-size: 0.85rem; color: var(--accent-lime); background: rgba(52, 211, 153, 0.1); padding: 4px 10px; border-radius: 12px; font-weight:700;">
         {{ completed_today }} از {{ total_habits }} تیک خورده
     </span>
 </div>
+<nav class="habit-date-nav" id="habitDateNavigation" aria-label="انتخاب روز عادت‌ها" hidden>
+    <a href="?date={{ previous_date_key }}" data-habit-date-previous aria-label="روز قبل">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i> روز قبل
+    </a>
+    <span class="habit-selected-date" id="habitSelectedDate">{{ selected_date_label }}</span>
+    <a href="?date={{ next_date_key }}" data-habit-date-next {% if is_selected_today %}hidden{% endif %} aria-label="روز بعد">
+        روز بعد <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+    </a>
+    <button type="button" data-habit-date-next-disabled {% if not is_selected_today %}hidden{% endif %} disabled aria-label="روز بعد">روز بعد
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+    </button>
+    <a href="{% url 'home' %}" data-habit-date-today {% if is_selected_today %}hidden{% endif %} aria-label="رفتن به امروز">برو به امروز</a>
+    <button type="button" data-habit-date-today-disabled {% if not is_selected_today %}hidden{% endif %} disabled aria-label="برو به امروز">برو به امروز</button>
+</nav>
 
 <div class="habits-list" id="habitsList">
     {% for item in habits_data %}
@@ -218,16 +367,24 @@
             <input type="number" class="form-control" style="width: 75px; text-align: center; padding: 6px 4px; font-weight:bold;" 
                    value="{{ item.value }}" min="{{ item.habit.min_value }}" max="{{ item.habit.max_value }}"
                    onclick="beginQuantEdit(this)" onblur="finishQuantEdit(this)"
-                   data-saved-value="{{ item.value }}">
+                   data-saved-value="{{ item.value }}"
+                   data-saved-completed="{{ item.completed|yesno:'true,false' }}"
+                   data-default-value="{{ item.habit.default_value|default_if_none:'' }}">
             {% endif %}
 
-            <div class="checkbox-custom {% if item.completed %}checked{% endif %}" 
-                 onclick="toggleHabitCheck({{ item.habit.id }}, this)">
+            <button type="button" class="checkbox-custom {% if item.completed %}checked{% endif %}"
+                    aria-label="ثبت انجام عادت" aria-pressed="{{ item.completed|yesno:'true,false' }}"
+                    onclick="toggleHabitCheck({{ item.habit.id }}, this)">
                 <i class="fa-solid fa-check"></i>
-            </div>
+            </button>
+            <button type="button" class="skip-custom {% if item.skipped %}skipped{% endif %}"
+                    aria-label="ثبت انجام ندادن عادت" aria-pressed="{{ item.skipped|yesno:'true,false' }}"
+                    onclick="markHabitSkipped({{ item.habit.id }}, this)">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
 
             <button style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding: 4px;"
-                    onclick="openEditModal({{ item.habit.id }}, '{{ item.habit.title }}', '{{ item.habit.emoji }}', '{{ item.habit.habit_type }}', {{ item.habit.min_value }}, {{ item.habit.max_value }}, '{{ item.habit.unit }}')">
+                    onclick="openEditModal({{ item.habit.id }}, '{{ item.habit.title }}', '{{ item.habit.emoji }}', '{{ item.habit.habit_type }}', {{ item.habit.min_value }}, {{ item.habit.max_value }}, '{{ item.habit.unit }}', '{{ item.habit.default_value|default_if_none:'' }}')">
                 <i class="fa-solid fa-pen-to-square"></i>
             </button>
         </div>
@@ -244,14 +401,16 @@
     <div class="github-grid-wrapper">
         <div class="github-grid">
             {% for day in matrix_days %}
-            <div class="day-cell level-{{ day.level }}" title="{{ day.jdate_str }}: {{ day.count }} عادت ثبت شده"></div>
+            <div class="day-cell level-{{ day.level }}" data-activity-date="{{ day.date_str }}"
+                 data-activity-count="{{ day.count }}"
+                 title="{{ day.jdate_str }}: {{ day.count }} عادت ثبت شده"></div>
             {% endfor %}
         </div>
     </div>
 </div>
 
 <!-- Habit Growth/Decline Chart -->
-<div class="card">
+<div class="card" id="habitChartCard">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h4 style="font-size: 0.95rem; color: var(--text-bright); font-weight:700;">نمودار روند رشد در طول زمان</h4>
         <select class="chart-select-btn" id="habitChartSelector" onchange="loadHabitChart(this.value)">
@@ -261,13 +420,20 @@
         </select>
     </div>
     <canvas id="habitProgressChart" height="180"></canvas>
+    <div id="habitStats" class="habit-stats" aria-live="polite"></div>
 </div>
 
 <!-- Add Habit Button -->
-<button class="add-habit-btn" onclick="openAddModal()">
-    <i class="fa-solid fa-circle-plus"></i>
-    <span>افزودن عادت جدید</span>
-</button>
+{% if total_habits < 10 %}
+    <button class="add-habit-btn" onclick="openAddModal()">
+        <i class="fa-solid fa-circle-plus"></i>
+        <span>افزودن عادت جدید</span>
+    </button>
+{% else %}
+    <p style="margin:12px 0; color:var(--text-muted); text-align:center;">
+        حداکثر ۱۰ عادت فعال می‌توانید داشته باشید.
+    </p>
+{% endif %}
 
 <!-- Add Habit Modal -->
 <div class="modal" id="addHabitModal">
@@ -301,9 +467,15 @@
                         <input type="number" name="max_value" class="form-control" value="100">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>واحد (صفحه، دقیقه و...)</label>
-                    <input type="text" name="unit" class="form-control" placeholder="دقیقه">
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>واحد (صفحه، دقیقه و...)</label>
+                        <input type="text" name="unit" class="form-control" placeholder="دقیقه">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>مقدار پیش‌فرض (اختیاری)</label>
+                        <input type="number" name="default_value" class="form-control" placeholder="خالی بماند">
+                    </div>
                 </div>
             </div>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -346,9 +518,15 @@
                         <input type="number" name="max_value" id="editMax" class="form-control">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>واحد</label>
-                    <input type="text" name="unit" id="editUnit" class="form-control">
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>واحد</label>
+                        <input type="text" name="unit" id="editUnit" class="form-control">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>مقدار پیش‌فرض (اختیاری)</label>
+                        <input type="number" name="default_value" id="editDefaultValue" class="form-control">
+                    </div>
                 </div>
             </div>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -372,65 +550,207 @@
 <script>
     const quotes = JSON.parse(document.getElementById('quotes-data').textContent);
     let quoteIndex = 0;
+    let quoteTimer;
     function setQuote(idx) {
-        quoteIndex = idx;
+        if (!quotes.length) return;
+        quoteIndex = (idx + quotes.length) % quotes.length;
         document.getElementById('quoteText').innerText = quotes[quoteIndex];
         document.querySelectorAll('.dot').forEach((d, i) => {
             d.classList.toggle('active', i === quoteIndex);
         });
+        window.clearTimeout(quoteTimer);
+        quoteTimer = window.setTimeout(() => setQuote(quoteIndex + 1), 5000);
     }
 
-    setInterval(() => {
-        quoteIndex = (quoteIndex + 1) % quotes.length;
-        setQuote(quoteIndex);
-    }, 5000);
+    function moveQuote(offset) { setQuote(quoteIndex + offset); }
+
+    function toggleHabitDateNavigation(button) {
+        const navigation = document.getElementById('habitDateNavigation');
+        navigation.hidden = !navigation.hidden;
+        button.setAttribute('aria-expanded', String(!navigation.hidden));
+    }
+
+    let selectedHabitDate = "{{ selected_date_key }}";
+    const todayHabitDate = "{{ today_date_key }}";
+    async function loadHabitDate(date, updateHistory = true) {
+        const response = await fetch("{% url 'habit_date_data' %}?date=" + encodeURIComponent(date));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'بارگذاری روز انتخاب‌شده ناموفق بود.');
+
+        selectedHabitDate = data.date;
+        document.getElementById('habitDateHeading').textContent =
+            `عادت‌های ${data.date_label}`;
+        document.getElementById('habitSelectedDate').textContent = data.date_label;
+        document.getElementById('habitCompletionSummary').textContent =
+            `${data.completed_count} از ${data.total_habits} تیک خورده`;
+
+        const previousLink = document.querySelector('[data-habit-date-previous]');
+        const nextLink = document.querySelector('[data-habit-date-next]');
+        const nextDisabled = document.querySelector('[data-habit-date-next-disabled]');
+        const todayLink = document.querySelector('[data-habit-date-today]');
+        const todayDisabled = document.querySelector('[data-habit-date-today-disabled]');
+        previousLink.href = `?date=${data.previous_date}`;
+        nextLink.href = `?date=${data.next_date}`;
+        nextLink.hidden = data.is_today;
+        nextDisabled.hidden = !data.is_today;
+        todayLink.hidden = data.is_today;
+        todayDisabled.hidden = !data.is_today;
+
+        document.querySelectorAll('.habit-item[data-id]').forEach(item => {
+            const log = data.habits[item.dataset.id] || {
+                completed: false,
+                skipped: false,
+                value: null,
+                default_value: null
+            };
+            const checkbox = item.querySelector('.checkbox-custom');
+            checkbox.classList.toggle('checked', log.completed);
+            checkbox.setAttribute('aria-pressed', String(log.completed));
+            const skipButton = item.querySelector('.skip-custom');
+            skipButton.classList.toggle('skipped', log.skipped);
+            skipButton.setAttribute('aria-pressed', String(log.skipped));
+            const input = item.querySelector('input[type="number"]');
+            if (input) {
+                input.value = log.skipped
+                    ? ''
+                    : log.value ?? (log.completed ? '' : log.default_value ?? '');
+                input.dataset.savedValue = input.value;
+            }
+        });
+
+        if (updateHistory) {
+            history.pushState({}, '', data.is_today ? "{% url 'home' %}" : `?date=${data.date}`);
+        }
+    }
+
+    document.querySelectorAll('[data-habit-date-previous], [data-habit-date-next], [data-habit-date-today]')
+        .forEach(link => link.addEventListener('click', event => {
+            event.preventDefault();
+            const targetDate = link.matches('[data-habit-date-today]')
+                ? null
+                : new URL(link.href).searchParams.get('date');
+            loadHabitDate(targetDate || todayHabitDate)
+                .catch(error => console.error(error));
+        }));
+
+    window.addEventListener('popstate', () => {
+        const date = new URLSearchParams(location.search).get('date');
+        loadHabitDate(date || todayHabitDate, false)
+            .catch(error => console.error(error));
+    });
+
+    let quoteTouchStart = null;
+    document.getElementById('quoteText').addEventListener('touchstart', event => {
+        quoteTouchStart = event.changedTouches[0].clientX;
+    }, { passive: true });
+    document.getElementById('quoteText').addEventListener('touchend', event => {
+        if (quoteTouchStart === null) return;
+        const distance = event.changedTouches[0].clientX - quoteTouchStart;
+        quoteTouchStart = null;
+        if (Math.abs(distance) >= 48) moveQuote(distance < 0 ? 1 : -1);
+    }, { passive: true });
+
+    if (quotes.length) quoteTimer = window.setTimeout(() => setQuote(1), 5000);
 
     function toggleHabitCheck(habitId, el) {
         const valueInput = document.querySelector('.habit-item[data-id="' + habitId + '"] input[type="number"]');
-        const amountChanged = valueInput && valueInput.value !== valueInput.dataset.savedValue;
-        const isChecked = amountChanged && valueInput.value !== ''
-            ? true
-            : !el.classList.contains('checked');
-        el.classList.toggle('checked', isChecked);
-        
+        const completed = !el.classList.contains('checked');
+        if (valueInput && completed && valueInput.value.trim() === '') {
+            valueInput.value = valueInput.dataset.defaultValue || valueInput.min;
+        }
+        saveHabitState(habitId, completed, false, valueInput);
+    }
+
+    function markHabitSkipped(habitId) {
+        const valueInput = document.querySelector('.habit-item[data-id="' + habitId + '"] input[type="number"]');
+        saveHabitState(habitId, false, true, valueInput);
+    }
+
+    function saveHabitState(habitId, completed, skipped, valueInput) {
+        const item = document.querySelector('.habit-item[data-id="' + habitId + '"]');
+        const checkbox = item.querySelector('.checkbox-custom');
+        const skipButton = item.querySelector('.skip-custom');
+        const previousCompleted = checkbox.classList.contains('checked');
+        const previousSkipped = skipButton.classList.contains('skipped');
+        const previousValue = valueInput ? valueInput.dataset.savedValue : null;
+        const displayedValue = valueInput ? valueInput.value : null;
+        checkbox.classList.toggle('checked', completed);
+        checkbox.setAttribute('aria-pressed', String(completed));
+        skipButton.classList.toggle('skipped', skipped);
+        skipButton.setAttribute('aria-pressed', String(skipped));
+        if (valueInput && skipped) valueInput.value = '';
+
         fetch("{% url 'toggle_habit' %}", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 habit_id: habitId,
-                completed: isChecked,
-                value: valueInput ? valueInput.value : null
+                completed,
+                skipped,
+                value: valueInput ? (skipped ? null : valueInput.value) : null,
+                date: selectedHabitDate
             })
-        }).then(response => {
-            if (!response.ok) throw new Error('Failed to update habit');
-            if (valueInput) valueInput.dataset.savedValue = valueInput.value;
-            location.reload();
+        }).then(async response => {
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'ثبت عادت ناموفق بود.');
+            if (valueInput) {
+                valueInput.value = data.value ?? '';
+                valueInput.dataset.savedValue = valueInput.value;
+                valueInput.dataset.savedCompleted = String(data.completed);
+            }
+            document.getElementById('habitCompletionSummary').textContent =
+                `${data.completed_count} از ${data.total_habits} تیک خورده`;
+            updateActivityCell(data.date, data.completed_count);
+            const selector = document.getElementById('habitChartSelector');
+            if (selector && selector.value) loadHabitChart(selector.value);
         }).catch(error => {
-            el.classList.toggle('checked');
+            checkbox.classList.toggle('checked', previousCompleted);
+            checkbox.setAttribute('aria-pressed', String(previousCompleted));
+            skipButton.classList.toggle('skipped', previousSkipped);
+            skipButton.setAttribute('aria-pressed', String(previousSkipped));
+            if (valueInput) {
+                valueInput.value = displayedValue;
+                valueInput.dataset.savedValue = previousValue;
+            }
             console.error(error);
         });
     }
 
+    function updateActivityCell(date, completedCount) {
+        const cell = document.querySelector(`[data-activity-date="${date}"]`);
+        if (!cell) return;
+        const level = Math.min(completedCount, 4);
+        cell.className = `day-cell level-${level}`;
+        cell.dataset.activityCount = completedCount;
+        cell.title = `${date}: ${completedCount} عادت ثبت شده`;
+    }
+
     function beginQuantEdit(input) {
         const checkbox = input.closest('.habit-item').querySelector('.checkbox-custom');
+        input.dataset.wasChecked = String(checkbox.classList.contains('checked'));
         checkbox.classList.remove('checked');
+        checkbox.setAttribute('aria-pressed', 'false');
     }
 
     function finishQuantEdit(input) {
         const checkbox = input.closest('.habit-item').querySelector('.checkbox-custom');
-        checkbox.classList.toggle('checked', input.value === input.dataset.savedValue);
+        const restoreChecked = input.dataset.wasChecked === 'true'
+            && input.value === input.dataset.savedValue;
+        checkbox.classList.toggle('checked', restoreChecked);
+        checkbox.setAttribute('aria-pressed', String(restoreChecked));
     }
 
     function openAddModal() { document.getElementById('addHabitModal').style.display = 'flex'; }
     function closeAddModal() { document.getElementById('addHabitModal').style.display = 'none'; }
 
-    function openEditModal(id, title, emoji, type, minVal, maxVal, unit) {
+    function openEditModal(id, title, emoji, type, minVal, maxVal, unit, defaultValue) {
         document.getElementById('editTitle').value = title;
         document.getElementById('editEmoji').value = emoji;
         document.getElementById('editHabitType').value = type;
         document.getElementById('editMin').value = minVal;
         document.getElementById('editMax').value = maxVal;
         document.getElementById('editUnit').value = unit;
+        document.getElementById('editDefaultValue').value = defaultValue;
 
         toggleQuantFields(type, 'edit');
         document.getElementById('editHabitForm').action = "/edit-habit/" + id + "/";
@@ -457,10 +777,39 @@
         fetch('/get-habit-chart-data/' + habitId + '/')
             .then(res => res.json())
             .then(data => {
-                const ctx = document.getElementById('habitProgressChart').getContext('2d');
+                const canvas = document.getElementById('habitProgressChart');
+                const statsContainer = document.getElementById('habitStats');
+                const isQuantitative = data.is_quantitative;
+                canvas.style.display = isQuantitative ? '' : 'none';
+                statsContainer.replaceChildren();
+                const stats = isQuantitative
+                    ? [
+                        ['تعداد ثبت موفق', data.stats.total_completed_days],
+                        ['رکورد تداوم', `${data.stats.longest_streak} روز`],
+                        ['مجموع مقدار ثبت‌شده', `${data.stats.total_value} ${data.unit}`.trim()]
+                    ]
+                    : [
+                        ['روزهای انجام', data.stats.total_completed_days],
+                        ['رکورد روزهای پشت سر هم', `${data.stats.longest_streak} روز`]
+                    ];
+                stats.forEach(([label, value]) => {
+                    const card = document.createElement('div');
+                    card.className = 'habit-stat';
+                    const number = document.createElement('strong');
+                    const caption = document.createElement('span');
+                    number.textContent = value;
+                    caption.textContent = label;
+                    card.append(number, caption);
+                    statsContainer.appendChild(card);
+                });
+                if (!isQuantitative) {
+                    if (myChart) myChart.destroy();
+                    myChart = null;
+                    return;
+                }
+                const ctx = canvas.getContext('2d');
                 if (myChart) myChart.destroy();
                 const numericValues = data.values.filter(Number.isFinite);
-                const isQuantitative = data.min_value !== null && data.max_value !== null;
                 
                 const gradient = ctx.createLinearGradient(0, 0, 0, 200);
                 gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');

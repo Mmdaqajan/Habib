@@ -1,0 +1,23 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.habib.mobile"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.habib.mobile"
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName "0.1"
+    }
+}
+
+tasks.register("copyMobileV01Apk", Copy) {
+    dependsOn("assembleDebug")
+    from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    into(rootProject.file("../apk"))
+    rename { "habib-mobile-v01.apk" }
+}
