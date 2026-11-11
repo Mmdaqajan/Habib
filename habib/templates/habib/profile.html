@@ -43,6 +43,11 @@
         </div>
         <h3 style="color:var(--text-bright); font-weight:800;">{{ profile.name }}</h3>
         <span style="font-size:0.85rem; color:var(--text-muted);">{{ profile.email }}</span>
+        {% if weekly_schedule %}
+        <span style="font-size:0.85rem; color:var(--text-muted); margin-top: 4px; display: block;">
+            خواب {{ weekly_schedule.sleep_time|time:"H:i" }}  •  بیداری {{ weekly_schedule.wake_time|time:"H:i" }}
+        </span>
+        {% endif %}
     </div>
 
     <form action="{% url 'profile' %}" method="POST" enctype="multipart/form-data">

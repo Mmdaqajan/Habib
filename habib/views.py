@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Habit, HabitLog, Alert, UserProfile
+from apps.weekly_schedule.models import WeeklySchedule, ScheduleDay
 
 MOTIVATIONAL_QUOTES = [
     "۱- عادت‌های تو هویتت رو، میزان ارادتو و آیندتو تعین میکنن",
@@ -31,6 +32,7 @@ def init_defaults():
             {"title": "جمعه ها ساعت 6 عصر بگه : برنامه این هفته رو نوشتی ؟", "frequency": Alert.FREQ_WEEKLY, "time_str": "جمعه 18:00"},
             {"title": "شهریه باشگاه یک هفته دیگه تموم میشه !", "frequency": Alert.FREQ_MONTHLY, "time_str": "ماهانه"},
             {"title": "15 آذر : به نظر میرسه امروز روز خوبی برای کاشتن یک درخته !", "frequency": Alert.FREQ_YEARLY, "time_str": "15 آذر"},
+            {"title": "۱ آبان : رویداد سالانه", "frequency": Alert.FREQ_YEARLY, "time_str": "۱۰ آبان"},
         ]
         for a in default_alerts:
             Alert.objects.create(**a)
@@ -252,7 +254,7 @@ def profile_view(request):
         profile.save()
         return redirect('profile')
 
-    context = {'profile': profile}
+    context = {'profile': profile, 'weekly_schedule': WeeklySchedule.objects.filter(pk=1).first()}
     return render(request, 'habib/profile.html', context)
 
 def get_habit_chart_data(request, habit_id):

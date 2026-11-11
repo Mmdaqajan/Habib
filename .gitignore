@@ -64,6 +64,7 @@ db.sqlite3-journal
 /media/profiles/
 /github/
 /standard-prompt.md
+/claude.md
 android/.gradle/
 android/local.properties
 android/**/build/

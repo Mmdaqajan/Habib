@@ -27,6 +27,7 @@ final class DbHelper extends SQLiteOpenHelper {
         boolean skipped;
         String value;
         Integer defaultValue;
+        int sortOrder;
     }
 
     static final class Reminder {
@@ -53,35 +54,96 @@ final class DbHelper extends SQLiteOpenHelper {
         boolean unlocked;
     }
 
+    static final class WeeklySchedule {
+        long id;
+        String sleepTime;
+        String wakeTime;
+    }
+
+    static final class ScheduleDay {
+        long id;
+        long scheduleId;
+        int weekday;
+        String workStart;
+        String workEnd;
+        String gymStart;
+        String gymEnd;
+    }
+
+    static final class WeeklyActivity {
+        long id;
+        String name;
+    }
+
+    static final class ActivitySlot {
+        long id;
+        long activityId;
+        int weekday;
+        String startTime;
+        String endTime;
+    }
+
     DbHelper(Context context) {
-        super(context, "habib-local.db", null, 7);
+        super(context, "habib-local.db", null, 9);
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE habits (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, emoji TEXT NOT NULL, type TEXT NOT NULL, min_value INTEGER NOT NULL DEFAULT 0, max_value INTEGER NOT NULL DEFAULT 100, unit TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', default_value INTEGER, active INTEGER NOT NULL DEFAULT 1)");
+        db.execSQL("CREATE TABLE habits (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, emoji TEXT NOT NULL, type TEXT NOT NULL, min_value INTEGER NOT NULL DEFAULT 0, max_value INTEGER NOT NULL DEFAULT 100, unit TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', default_value INTEGER, active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE habit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, habit_id INTEGER NOT NULL, date TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0, skipped INTEGER NOT NULL DEFAULT 0, value INTEGER, UNIQUE(habit_id, date), FOREIGN KEY(habit_id) REFERENCES habits(id) ON DELETE CASCADE)");
         db.execSQL("CREATE TABLE reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, frequency TEXT NOT NULL, time TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', advance_notice_value INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE calendar_events (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, title TEXT NOT NULL, color INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE profile (id INTEGER PRIMARY KEY CHECK(id=1), name TEXT NOT NULL, age TEXT NOT NULL DEFAULT '', birth_date TEXT NOT NULL DEFAULT '', email TEXT NOT NULL, phone TEXT NOT NULL, photo_uri TEXT NOT NULL DEFAULT '', photo_x INTEGER NOT NULL DEFAULT 50, photo_y INTEGER NOT NULL DEFAULT 50)");
+        
+        // Weekly Schedule Tables
+        db.execSQL("CREATE TABLE weekly_schedule (id INTEGER PRIMARY KEY CHECK(id=1), sleep_time TEXT DEFAULT '22:00', wake_time TEXT DEFAULT '06:00')");
+        db.execSQL("CREATE TABLE schedule_days (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER NOT NULL, weekday INTEGER NOT NULL, work_start TEXT, work_end TEXT, gym_start TEXT, gym_end TEXT, FOREIGN KEY(schedule_id) REFERENCES weekly_schedule(id) ON DELETE CASCADE, UNIQUE(schedule_id, weekday))");
+        db.execSQL("CREATE TABLE weekly_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE activity_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, activity_id INTEGER NOT NULL, weekday INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY(activity_id) REFERENCES weekly_activities(id) ON DELETE CASCADE, UNIQUE(activity_id, weekday))");
+        
         createAchievementsTable(db);
         insertInitialData(db);
     }
 
     private void insertInitialData(SQLiteDatabase db) {
-        insertHabit(db, "مطالعه", "📖", "quantitative", 10, 100, "صفحه", "مطالعه روزانه");
-        insertHabit(db, "ورزش", "🏋️", "boolean", 0, 100, "", "باشگاه یا پیاده‌روی");
-        insertHabit(db, "سحرخیزی (07:00)", "☀️", "boolean", 0, 100, "", "");
-        insertHabit(db, "Study English", "🗽", "quantitative", 10, 60, "دقیقه", "لغات و ریدینگ");
+        insertHabit(db, "مطالعه", "📖", "quantitative", 10, 100, "صفحه", "مطالعه روزانه", 1);
+        insertHabit(db, "ورزش", "🏋️", "boolean", 0, 100, "", "باشگاه یا پیاده‌روی", 2);
+        insertHabit(db, "سحرخیزی (07:00)", "☀️", "boolean", 0, 100, "", "", 3);
+        insertHabit(db, "Study English", "🗽", "quantitative", 10, 60, "دقیقه", "لغات و ریدینگ", 4);
         ContentValues profile = new ContentValues();
         profile.put("id", 1);
-        profile.put("name", "محمد");
+        profile.put("name", "user58192");
         profile.put("age", "");
         profile.put("email", "");
         profile.put("phone", "");
         profile.put("photo_uri", "");
         db.insert("profile", null, profile);
         insertDefaultReminders(db);
+
+        // Weekly schedule defaults: sleep 22:00, wake 06:00; gym 21:00-23:00 Sun-Thu (days 1-5)
+        saveWeeklySchedule(db, "22:00", "06:00");
+        for (int d = 1; d <= 5; d++) {
+            saveScheduleDay(db, d, null, null, "21:00", "23:00");
+        }
+    }
+
+    private void saveWeeklySchedule(SQLiteDatabase db, String sleepTime, String wakeTime) {
+        ContentValues values = new ContentValues();
+        values.put("id", 1);
+        values.put("sleep_time", sleepTime);
+        values.put("wake_time", wakeTime);
+        db.insertWithOnConflict("weekly_schedule", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    private void saveScheduleDay(SQLiteDatabase db, int weekday, String workStart, String workEnd, String gymStart, String gymEnd) {
+        ContentValues values = new ContentValues();
+        values.put("schedule_id", 1);
+        values.put("weekday", weekday);
+        values.put("work_start", workStart);
+        values.put("work_end", workEnd);
+        values.put("gym_start", gymStart);
+        values.put("gym_end", gymEnd);
+        db.insertWithOnConflict("schedule_days", null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
     void resetAllData() {
@@ -102,7 +164,7 @@ final class DbHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void insertHabit(SQLiteDatabase db, String title, String emoji, String type, int min, int max, String unit, String description) {
+    private void insertHabit(SQLiteDatabase db, String title, String emoji, String type, int min, int max, String unit, String description, int sortOrder) {
         ContentValues values = new ContentValues();
         values.put("title", title);
         values.put("emoji", emoji);
@@ -111,6 +173,7 @@ final class DbHelper extends SQLiteOpenHelper {
         values.put("max_value", max);
         values.put("unit", unit);
         values.put("description", description);
+        values.put("sort_order", sortOrder);
         db.insert("habits", null, values);
     }
 
@@ -144,6 +207,16 @@ final class DbHelper extends SQLiteOpenHelper {
                     new Object[]{"بهترین کاری که میتونی جمعه ها انجام بدی نوشتن برنامه ی هفته ی آینده ست", "برنامه‌ریزی هفتگی"});
             db.execSQL("UPDATE reminders SET description=? WHERE title=? AND description=''",
                     new Object[]{"ی تصمیم خوب و ماندگار :)", "کاشت درخت"});
+        }
+        if (oldVersion < 8) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS weekly_schedule (id INTEGER PRIMARY KEY CHECK(id=1), sleep_time TEXT DEFAULT '22:00', wake_time TEXT DEFAULT '06:00')");
+            db.execSQL("CREATE TABLE IF NOT EXISTS schedule_days (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER NOT NULL, weekday INTEGER NOT NULL, work_start TEXT, work_end TEXT, gym_start TEXT, gym_end TEXT, FOREIGN KEY(schedule_id) REFERENCES weekly_schedule(id) ON DELETE CASCADE, UNIQUE(schedule_id, weekday))");
+            db.execSQL("CREATE TABLE IF NOT EXISTS weekly_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS activity_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, activity_id INTEGER NOT NULL, weekday INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY(activity_id) REFERENCES weekly_activities(id) ON DELETE CASCADE, UNIQUE(activity_id, weekday))");
+        }
+        if (oldVersion < 9) {
+            addColumnIfMissing(db, "habits", "sort_order", "INTEGER NOT NULL DEFAULT 0");
+            db.execSQL("UPDATE habits SET sort_order = id WHERE sort_order = 0");
         }
     }
 
@@ -187,6 +260,8 @@ final class DbHelper extends SQLiteOpenHelper {
                 "بهترین کاری که میتونی جمعه ها انجام بدی نوشتن برنامه ی هفته ی آینده ست");
         insertReminder(db, "پرداخت شهریه باشگاه", "ماهانه", "روز 1 ماه - ساعت 10:00", "");
         insertReminder(db, "کاشت درخت", "سالانه", "15 آذر - ساعت 09:00", "ی تصمیم خوب و ماندگار :)");
+        insertReminder(db, "رویداد ۱۰ آبان", "سالانه", "۱۰ آبان - ساعت 07:00", "به چالش NNN بپیوندید!");
+        insertReminder(db, "ژورنال امروز رو بنویس", "روزانه", "ساعت 14:00", "");
     }
 
     private long dbDatabaseCount(SQLiteDatabase db, String table) {
@@ -212,9 +287,9 @@ final class DbHelper extends SQLiteOpenHelper {
         ArrayList<Habit> result = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
         try (Cursor cursor = db.rawQuery(
-                "SELECT h.id,h.title,h.emoji,h.type,h.min_value,h.max_value,h.unit,h.description,l.completed,l.skipped,l.value,h.default_value " +
+                "SELECT h.id,h.title,h.emoji,h.type,h.min_value,h.max_value,h.unit,h.description,l.completed,l.skipped,l.value,h.default_value,h.sort_order " +
                         "FROM habits h LEFT JOIN habit_logs l ON l.habit_id=h.id AND l.date=? " +
-                        "WHERE h.active=1 ORDER BY h.id", new String[]{date.toString()})) {
+                        "WHERE h.active=1 ORDER BY h.sort_order, h.id", new String[]{date.toString()})) {
             while (cursor.moveToNext()) {
                 Habit habit = new Habit();
                 habit.id = cursor.getLong(0);
@@ -229,6 +304,7 @@ final class DbHelper extends SQLiteOpenHelper {
                 habit.skipped = cursor.getInt(9) == 1;
                 habit.value = cursor.isNull(10) ? "" : cursor.getString(10);
                 habit.defaultValue = cursor.isNull(11) ? null : cursor.getInt(11);
+                habit.sortOrder = cursor.isNull(12) ? 0 : cursor.getInt(12);
                 if (!habit.completed && !habit.skipped && habit.value.isEmpty()
                         && habit.defaultValue != null) {
                     habit.value = String.valueOf(habit.defaultValue);
@@ -298,6 +374,11 @@ final class DbHelper extends SQLiteOpenHelper {
         values.put("description", description);
         if (defaultValue == null || !"quantitative".equals(type)) values.putNull("default_value");
         else values.put("default_value", defaultValue);
+        int nextOrder = 1;
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT MAX(sort_order) FROM habits WHERE active=1", null)) {
+            if (c.moveToFirst()) nextOrder = c.getInt(0) + 1;
+        }
+        values.put("sort_order", nextOrder);
         return getWritableDatabase().insert("habits", null, values);
     }
 
@@ -313,6 +394,27 @@ final class DbHelper extends SQLiteOpenHelper {
         if (defaultValue == null || !"quantitative".equals(type)) values.putNull("default_value");
         else values.put("default_value", defaultValue);
         getWritableDatabase().update("habits", values, "id=?", new String[]{String.valueOf(id)});
+    }
+
+    void updateHabitSortOrder(long id, int sortOrder) {
+        ContentValues values = new ContentValues();
+        values.put("sort_order", sortOrder);
+        getWritableDatabase().update("habits", values, "id=?", new String[]{String.valueOf(id)});
+    }
+
+    void swapHabitOrder(long id1, long id2) {
+        SQLiteDatabase db = getWritableDatabase();
+        int order1 = 0, order2 = 0;
+        try (Cursor c1 = db.rawQuery("SELECT sort_order FROM habits WHERE id=?", new String[]{String.valueOf(id1)})) {
+            if (c1.moveToFirst()) order1 = c1.getInt(0);
+        }
+        try (Cursor c2 = db.rawQuery("SELECT sort_order FROM habits WHERE id=?", new String[]{String.valueOf(id2)})) {
+            if (c2.moveToFirst()) order2 = c2.getInt(0);
+        }
+        ContentValues v1 = new ContentValues(); v1.put("sort_order", order2);
+        db.update("habits", v1, "id=?", new String[]{String.valueOf(id1)});
+        ContentValues v2 = new ContentValues(); v2.put("sort_order", order1);
+        db.update("habits", v2, "id=?", new String[]{String.valueOf(id2)});
     }
 
     void deleteHabit(long id) {
@@ -622,5 +724,110 @@ final class DbHelper extends SQLiteOpenHelper {
                 "SELECT COALESCE(SUM(xp_reward),0) FROM achievement_unlocks", null)) {
             return cursor.moveToFirst() ? cursor.getInt(0) : 0;
         }
+    }
+
+    // Weekly Schedule Methods
+    WeeklySchedule getWeeklySchedule() {
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT id, sleep_time, wake_time FROM weekly_schedule WHERE id=1", null)) {
+            if (cursor.moveToFirst()) {
+                WeeklySchedule schedule = new WeeklySchedule();
+                schedule.id = cursor.getLong(0);
+                schedule.sleepTime = cursor.getString(1);
+                schedule.wakeTime = cursor.getString(2);
+                return schedule;
+            }
+        }
+        return null;
+    }
+
+    void saveWeeklySchedule(String sleepTime, String wakeTime) {
+        ContentValues values = new ContentValues();
+        values.put("id", 1);
+        values.put("sleep_time", sleepTime);
+        values.put("wake_time", wakeTime);
+        getWritableDatabase().insertWithOnConflict("weekly_schedule", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    ArrayList<ScheduleDay> getScheduleDays() {
+        ArrayList<ScheduleDay> days = new ArrayList<>();
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT id, schedule_id, weekday, work_start, work_end, gym_start, gym_end FROM schedule_days ORDER BY weekday", null)) {
+            while (cursor.moveToNext()) {
+                ScheduleDay day = new ScheduleDay();
+                day.id = cursor.getLong(0);
+                day.scheduleId = cursor.getLong(1);
+                day.weekday = cursor.getInt(2);
+                day.workStart = cursor.getString(3);
+                day.workEnd = cursor.getString(4);
+                day.gymStart = cursor.getString(5);
+                day.gymEnd = cursor.getString(6);
+                days.add(day);
+            }
+        }
+        return days;
+    }
+
+    void saveScheduleDay(int weekday, String workStart, String workEnd, String gymStart, String gymEnd) {
+        ContentValues values = new ContentValues();
+        values.put("schedule_id", 1);
+        values.put("weekday", weekday);
+        values.put("work_start", workStart);
+        values.put("work_end", workEnd);
+        values.put("gym_start", gymStart);
+        values.put("gym_end", gymEnd);
+        getWritableDatabase().insertWithOnConflict("schedule_days", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    ArrayList<WeeklyActivity> getWeeklyActivities() {
+        ArrayList<WeeklyActivity> activities = new ArrayList<>();
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT id, name FROM weekly_activities ORDER BY name", null)) {
+            while (cursor.moveToNext()) {
+                WeeklyActivity activity = new WeeklyActivity();
+                activity.id = cursor.getLong(0);
+                activity.name = cursor.getString(1);
+                activities.add(activity);
+            }
+        }
+        return activities;
+    }
+
+    ArrayList<ActivitySlot> getActivitySlots(long activityId) {
+        ArrayList<ActivitySlot> slots = new ArrayList<>();
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT id, activity_id, weekday, start_time, end_time FROM activity_slots WHERE activity_id=? ORDER BY weekday, start_time",
+                new String[]{String.valueOf(activityId)})) {
+            while (cursor.moveToNext()) {
+                ActivitySlot slot = new ActivitySlot();
+                slot.id = cursor.getLong(0);
+                slot.activityId = cursor.getLong(1);
+                slot.weekday = cursor.getInt(2);
+                slot.startTime = cursor.getString(3);
+                slot.endTime = cursor.getString(4);
+                slots.add(slot);
+            }
+        }
+        return slots;
+    }
+
+    long addWeeklyActivity(String name) {
+        ContentValues values = new ContentValues();
+        values.put("name", name);
+        return getWritableDatabase().insert("weekly_activities", null, values);
+    }
+
+    void addActivitySlot(long activityId, int weekday, String startTime, String endTime) {
+        ContentValues values = new ContentValues();
+        values.put("activity_id", activityId);
+        values.put("weekday", weekday);
+        values.put("start_time", startTime);
+        values.put("end_time", endTime);
+        getWritableDatabase().insertWithOnConflict("activity_slots", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    void deleteWeeklyActivity(long activityId) {
+        getWritableDatabase().delete("weekly_activities", "id=?", new String[]{String.valueOf(activityId)});
+        getWritableDatabase().delete("activity_slots", "activity_id=?", new String[]{String.valueOf(activityId)});
     }
 }

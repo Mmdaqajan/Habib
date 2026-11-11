@@ -8,6 +8,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteException;
@@ -77,6 +78,11 @@ public class MainActivity extends Activity {
     private static final int[] EVENT_COLORS = {
             0xffef4444, 0xfff97316, 0xfffb923c, 0xfffacc15
     };
+    private static final String[] WEEKDAY_NAMES = {"شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه"};
+    private static final int WEEK_COLOR_WORK = 0xff818cf8;
+    private static final int WEEK_COLOR_GYM = 0xff059669;
+    private static final int WEEK_COLOR_FREE_SHORT = 0xff3b82f6;
+    private static final int WEEK_COLOR_FREE_LONG = 0xff10b981;
     private DbHelper database;
     private LinearLayout root;
     private LinearLayout content;
@@ -102,6 +108,7 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(BG);
         database = new DbHelper(this);
         showApp();
+        scheduleReminders();
     }
 
     private String persianDigits(int value) {
@@ -218,6 +225,70 @@ public class MainActivity extends Activity {
         notificationManager.cancelAll();
     }
 
+    private void scheduleReminders() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        Set<String> scheduledCodes = new HashSet<>(preferences.getStringSet(
+                SCHEDULED_NOTIFICATION_CODES, new HashSet<>()));
+        for (String code : scheduledCodes) {
+            try {
+                Intent intent = new Intent(this, NotificationReceiver.class);
+                PendingIntent pending = PendingIntent.getBroadcast(this, Integer.parseInt(code),
+                        intent, PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+                if (pending != null) {
+                    alarmManager.cancel(pending);
+                    pending.cancel();
+                }
+            } catch (NumberFormatException ignored) { }
+        }
+        scheduledCodes.clear();
+
+        Calendar now = Calendar.getInstance();
+        ArrayList<DbHelper.Reminder> reminders = database.reminders();
+        for (DbHelper.Reminder r : reminders) {
+            long delay = nextReminderDelay(r, now);
+            if (delay < 0) continue;
+            Intent intent = new Intent(this, NotificationReceiver.class);
+            intent.putExtra("title", r.title);
+            intent.putExtra("text", r.title);
+            int requestCode = (int) (System.currentTimeMillis() + r.id);
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(this, requestCode, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + delay, pendingIntent);
+            scheduledCodes.add(String.valueOf(requestCode));
+        }
+        preferences.edit().putStringSet(SCHEDULED_NOTIFICATION_CODES, scheduledCodes).apply();
+    }
+
+    private long nextReminderDelay(DbHelper.Reminder r, Calendar now) {
+        String time = r.time;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{1,2}):(\\d{2})").matcher(time);
+        if (!m.find()) return -1;
+        int hour = Integer.parseInt(m.group(1));
+        int minute = Integer.parseInt(m.group(2));
+
+        Calendar target = (Calendar) now.clone();
+        target.set(Calendar.HOUR_OF_DAY, hour);
+        target.set(Calendar.MINUTE, minute);
+        target.set(Calendar.SECOND, 0);
+        target.set(Calendar.MILLISECOND, 0);
+
+        String lower = r.frequency.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("روز") || lower.contains("daily")) {
+            if (!target.after(now)) target.add(Calendar.DAY_OF_MONTH, 1);
+        } else if (lower.contains("هفت") || lower.contains("weekly")) {
+            if (!target.after(now)) target.add(Calendar.DAY_OF_MONTH, 7);
+        } else {
+            if (!target.after(now)) target.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        return target.getTimeInMillis() - now.getTimeInMillis();
+    }
+
     private void postNotification(String title, String text) {
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.createNotificationChannel(new NotificationChannel(NOTIFICATION_CHANNEL, "یادآوری‌های حبیب",
@@ -265,13 +336,34 @@ public class MainActivity extends Activity {
         });
 
         LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
+        header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(dp(20), dp(14), dp(20), dp(14));
-        TextView title = text("حبیب  |  Habib", 21, TEXT);
+
+        // Version on the left
+        TextView versionText = text("نسخه ۰.۲", 10, MUTED);
+        header.addView(versionText, wrapMargin(0, 0, 0, 0));
+
+        // Logo/title in the center
+        LinearLayout titleCol = new LinearLayout(this);
+        titleCol.setOrientation(LinearLayout.VERTICAL);
+        titleCol.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
+        titleCol.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        TextView title = text("💎  حبیب  |  Habib", 21, TEXT);
         title.setTypeface(null, Typeface.BOLD);
-        header.addView(title);
-        header.addView(text("محل توسعهٔ عادت‌های من :)", 12, MUTED), margin(0, 3, 0, 0));
+        titleCol.addView(title);
+        titleCol.addView(text("محل توسعهٔ عادت‌های من :)", 12, MUTED), margin(0, 3, 0, 0));
+        header.addView(titleCol, new LinearLayout.LayoutParams(0, -2, 1));
+
+        // Settings button on the right
+        Button settingsBtn = button("⋮", 0xff263244);
+        settingsBtn.setTextSize(20);
+        settingsBtn.setPadding(dp(8), 0, dp(8), 0);
+        settingsBtn.setOnClickListener(v -> {
+            currentPage = "profile";
+            showApp();
+        });
+        header.addView(settingsBtn, wrapMargin(0, 0, 0, 0));
         root.addView(header, new LinearLayout.LayoutParams(-1, -2));
 
         ScrollView scroll = new ScrollView(this);
@@ -292,9 +384,9 @@ public class MainActivity extends Activity {
         navigation.setBackgroundColor(CARD);
         navigation.setPadding(dp(8), dp(5), dp(8), dp(5));
         addNav(navigation, "habits", "عادت‌ها", "⌂");
+        addNav(navigation, "weekly_schedule", "برنامه هفتگی", "📅");
         addNav(navigation, "reminders", "یادآوری‌ها", "🔔");
         addNav(navigation, "achievements", "دستاوردها", "🏆");
-        addNav(navigation, "profile", "تنظیمات", "⚙");
         root.addView(navigation, new LinearLayout.LayoutParams(-1, dp(76)));
         renderPage();
     }
@@ -337,6 +429,7 @@ public class MainActivity extends Activity {
         else if ("achievements".equals(currentPage)) renderAchievements();
         else if ("recovery".equals(currentPage)) renderRecovery();
         else if ("profileEdit".equals(currentPage)) renderProfile(true);
+        else if ("weekly_schedule".equals(currentPage)) renderWeeklySchedule();
         else renderProfile(false);
     }
 
@@ -348,6 +441,10 @@ public class MainActivity extends Activity {
         TextView heading = text(selectedHabitDate.equals(LocalDate.now())
                 ? "عادت‌های امروز" : "عادت‌های " + jalaliDateLabel(selectedHabitDate), 20, TEXT);
         heading.setTypeface(null, Typeface.BOLD);
+        heading.setOnClickListener(v -> {
+            selectedHabitDate = selectedHabitDate.minusDays(1);
+            renderPage();
+        });
         LinearLayout dateHeading = new LinearLayout(this);
         dateHeading.setGravity(Gravity.CENTER_VERTICAL);
         dateHeading.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
@@ -1335,6 +1432,62 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void renderHabitReorder() {
+        content.removeAllViews();
+        TextView heading = text("ترتيب عادتها", 20, TEXT);
+        heading.setTypeface(null, Typeface.BOLD);
+        content.addView(heading, margin(0, 0, 0, 12));
+
+        ArrayList<DbHelper.Habit> habits = database.habits(LocalDate.now());
+        if (habits.isEmpty()) {
+            content.addView(text("عادت‌ای برای مرتب‌سازی وجود ندارد.", 14, MUTED), margin(0, 8, 0, 8));
+            Button back = button("بازگشت به تنظیمات", 0xff263244);
+            back.setOnClickListener(v -> { currentPage = "profile"; showApp(); });
+            content.addView(back, margin(0, 8, 0, 0));
+            return;
+        }
+
+        for (int i = 0; i < habits.size(); i++) {
+            final int ii = i;
+            DbHelper.Habit habit = habits.get(i);
+            LinearLayout row = card();
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+            TextView num = text(String.valueOf(i + 1), 16, MUTED);
+            num.setTypeface(null, Typeface.BOLD);
+            row.addView(num, new LinearLayout.LayoutParams(dp(32), -2));
+
+            TextView title = text(habit.emoji + "  " + habit.title, 15, TEXT);
+            row.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+
+            Button moveUp = button("↑", 0xff263244);
+            moveUp.setTextSize(14);
+            moveUp.setEnabled(i > 0);
+            moveUp.setOnClickListener(v -> {
+                database.swapHabitOrder(habit.id, habits.get(ii - 1).id);
+                renderHabitReorder();
+            });
+            row.addView(moveUp, new LinearLayout.LayoutParams(dp(40), dp(36)));
+
+            Button moveDown = button("↓", 0xff263244);
+            moveDown.setTextSize(14);
+            moveDown.setEnabled(i < habits.size() - 1);
+            moveDown.setOnClickListener(v -> {
+                database.swapHabitOrder(habit.id, habits.get(ii + 1).id);
+                renderHabitReorder();
+            });
+            row.addView(moveDown, new LinearLayout.LayoutParams(dp(40), dp(36)));
+
+            content.addView(row, margin(0, 0, 0, 8));
+        }
+
+        Button back = button("بازگشت به تنظیمات", GREEN);
+        back.setOnClickListener(v -> { currentPage = "profile"; showApp(); });
+        content.addView(back, margin(0, 12, 0, 0));
+    }
+
     private void renderProfile(boolean editing) {
         String[] profile = database.profile();
         TextView heading = text("تنظیمات", 20, TEXT);
@@ -1382,6 +1535,11 @@ public class MainActivity extends Activity {
             summary.addView(text(birthParts == null ? "تاریخ تولد ثبت نشده"
                     : "سن: " + persianDigits(calculateAge(birthParts)) + " سال", 13, MUTED),
                     margin(0, 5, 0, 10));
+            DbHelper.WeeklySchedule schedule = database.getWeeklySchedule();
+            if (schedule != null) {
+                summary.addView(text("خواب: " + schedule.sleepTime + "  •  بیداری: " + schedule.wakeTime, 13, MUTED),
+                        margin(0, 5, 0, 10));
+            }
             Button edit = button("✏️  تغییر اطلاعات کاربری", 0xff263244);
             summary.addView(edit);
             edit.setOnClickListener(v -> {
@@ -1393,6 +1551,7 @@ public class MainActivity extends Activity {
                     {"ⓘ", "درباره ما"},
                     {"↓", "تهیه فایل پشتیبان"},
                     {"↑", "بازگردانی اطلاعات"},
+                    {"🔄", "ترتيب عادتها"},
                     {"✉", "انتقادات و پیشنهادات"}
             };
             for (String[] option : options) {
@@ -1402,6 +1561,12 @@ public class MainActivity extends Activity {
                 item.addView(text(option[0], 18, GREEN), wrapMargin(0, 0, 12, 0));
                 item.addView(text(option[1], 15, TEXT));
                 content.addView(item, margin(0, 0, 0, 8));
+                final String optLabel = option[1];
+                item.setOnClickListener(v -> {
+                    if ("ترتيب عادتها".equals(optLabel)) {
+                        renderHabitReorder();
+                    }
+                });
             }
             Button deleteData = button("حذف اطلاعات", 0xff7f1d1d);
             deleteData.setTextSize(15);
@@ -1897,6 +2062,7 @@ public class MainActivity extends Activity {
             weekdayPicker.setVisibility(selectedFrequency == 1 ? View.VISIBLE : View.GONE);
             monthDay.setVisibility(selectedFrequency == 2 ? View.VISIBLE : View.GONE);
             yearlyDateButton.setVisibility(selectedFrequency == 3 ? View.VISIBLE : View.GONE);
+            advanceNotice.setHint(selectedFrequency == 0 ? "تعداد ساعت" : "تعداد روز");
         };
         frequency.setOnItemSelectedListener(selectionListener(updateScheduleFields));
         updateScheduleFields.run();
@@ -1941,6 +2107,7 @@ public class MainActivity extends Activity {
                 database.updateReminder(reminder.id, value, frequency.getSelectedItem().toString(),
                         schedule, descriptionValue, notice);
             }
+            scheduleReminders();
             dialog.dismiss();
             renderPage();
         });
@@ -2258,6 +2425,745 @@ public class MainActivity extends Activity {
         private float dp(int value) {
             return value * getResources().getDisplayMetrics().density;
         }
+    }
+
+    /* ================= برنامه هفتگی (همخوانی با نسخه وب) ================= */
+
+    private String weekSetupSleepTime = "22:00";
+    private String weekSetupWakeTime = "06:00";
+    private final boolean[] weekSetupWorkEnabled = new boolean[7];
+    private final boolean[] weekSetupGymEnabled = new boolean[7];
+    private final String[] weekSetupWorkStart = new String[7];
+    private final String[] weekSetupWorkEnd = new String[7];
+    private final String[] weekSetupGymStart = new String[7];
+    private final String[] weekSetupGymEnd = new String[7];
+
+    private String weekActivityName = "";
+    private final boolean[] weekActivityDays = new boolean[7];
+    private final String[] weekActivityStart = new String[7];
+    private final String[] weekActivityEnd = new String[7];
+    private long weekEditActivityId = -1;
+
+    private static final class WeekBlock {
+        String name;
+        int startMin;
+        int endMin;
+        int color;
+        boolean isFree;
+
+        WeekBlock(String name, int startMin, int endMin, int color, boolean isFree) {
+            this.name = name;
+            this.startMin = startMin;
+            this.endMin = endMin;
+            this.color = color;
+            this.isFree = isFree;
+        }
+    }
+
+    private void renderWeeklySchedule() {
+        content.removeAllViews();
+        DbHelper.WeeklySchedule schedule = database.getWeeklySchedule();
+
+        TextView heading = text("برنامه هفتگی", 20, TEXT);
+        heading.setTypeface(null, Typeface.BOLD);
+        content.addView(heading, margin(0, 0, 0, 12));
+
+        if (schedule == null) {
+            database.saveWeeklySchedule("22:00", "06:00");
+            for (int d = 1; d <= 5; d++) {
+                database.saveScheduleDay(d, null, null, "21:00", "23:00");
+            }
+            schedule = database.getWeeklySchedule();
+        }
+        final DbHelper.WeeklySchedule finalSchedule = schedule;
+
+        renderWeeklyTimeline(schedule);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER);
+        Button setupBtn = button("ویرایش خواب/بیداری", 0xff263244);
+        Button manageBtn = button("مدیریت فعالیت‌ها", 0xff263244);
+        Button addBtn = button("+ فعالیت", GREEN);
+        actions.addView(setupBtn, new LinearLayout.LayoutParams(0, dp(44), 1));
+        actions.addView(manageBtn, new LinearLayout.LayoutParams(0, dp(44), 1));
+        actions.addView(addBtn, new LinearLayout.LayoutParams(0, dp(44), 1));
+        content.addView(actions, margin(0, 8, 0, 14));
+
+        setupBtn.setOnClickListener(v -> {
+            loadWeekSetupState(finalSchedule);
+            renderWeeklySetup(finalSchedule);
+        });
+        manageBtn.setOnClickListener(v -> renderWeeklyManageActivities());
+        addBtn.setOnClickListener(v -> {
+            resetWeekActivityState();
+            renderWeeklyAddActivityDialog();
+        });
+    }
+
+    private void renderWeeklyTimeline(DbHelper.WeeklySchedule schedule) {
+        int wakeMin = timeToMinutes(schedule.wakeTime);
+        int sleepMin = timeToMinutes(schedule.sleepTime);
+        int awakeMin = (sleepMin - wakeMin + 1440) % 1440;
+        if (awakeMin == 0) awakeMin = 1440;
+        int slotCount = awakeMin / 15;
+
+        ArrayList<DbHelper.ScheduleDay> days = database.getScheduleDays();
+        ArrayList<DbHelper.WeeklyActivity> activities = database.getWeeklyActivities();
+
+        HashMap<Long, ArrayList<DbHelper.ActivitySlot>> slotsByActivity = new HashMap<>();
+        for (DbHelper.WeeklyActivity a : activities) {
+            slotsByActivity.put(a.id, database.getActivitySlots(a.id));
+        }
+
+        LinearLayout timelineCard = card();
+        timelineCard.setOrientation(LinearLayout.VERTICAL);
+
+        LinearLayout descSection = new LinearLayout(this);
+        descSection.setOrientation(LinearLayout.VERTICAL);
+        descSection.setPadding(dp(12), dp(12), dp(12), dp(12));
+        descSection.setBackground(round(0xff0b0f17, 8, 0xff334155));
+
+        TextView descTitle = text("تنظیمات برنامه هفتگی", 15, TEXT);
+        descTitle.setTypeface(null, Typeface.BOLD);
+        descSection.addView(descTitle, margin(0, 0, 0, 6));
+        TextView descBody = text("بیداری " + schedule.wakeTime + " تا خواب " + schedule.sleepTime + ".\nهر روز از زمان بیداری آغاز می‌شود؛ زمان‌های پس از نیمه‌شب در همان ردیف روز نمایش داده می‌شوند.", 12, MUTED);
+        descSection.addView(descBody);
+        timelineCard.addView(descSection, margin(0, 0, 0, 10));
+
+        TextView info = text("بیداری " + schedule.wakeTime + "  تا  خواب " + schedule.sleepTime, 13, MUTED);
+        timelineCard.addView(info, margin(0, 0, 0, 10));
+
+        for (DbHelper.ScheduleDay day : days) {
+            ArrayList<WeekBlock> blocks = new ArrayList<>();
+            if (day.workStart != null && day.workEnd != null) {
+                blocks.add(new WeekBlock("کار", timeToMinutes(day.workStart), timeToMinutes(day.workEnd), WEEK_COLOR_WORK, false));
+            }
+            if (day.gymStart != null && day.gymEnd != null) {
+                blocks.add(new WeekBlock("باشگاه", timeToMinutes(day.gymStart), timeToMinutes(day.gymEnd), WEEK_COLOR_GYM, false));
+            }
+            for (DbHelper.WeeklyActivity a : activities) {
+                ArrayList<DbHelper.ActivitySlot> slots = slotsByActivity.get(a.id);
+                if (slots == null) continue;
+                for (DbHelper.ActivitySlot s : slots) {
+                    if (s.weekday == day.weekday) {
+                        blocks.add(new WeekBlock(a.name, timeToMinutes(s.startTime), timeToMinutes(s.endTime), activityColor(a.id), false));
+                    }
+                }
+            }
+            blocks.sort((a, b) -> Integer.compare(a.startMin, b.startMin));
+
+            LinearLayout dayRow = new LinearLayout(this);
+            dayRow.setOrientation(LinearLayout.HORIZONTAL);
+            dayRow.setGravity(Gravity.CENTER_VERTICAL);
+            dayRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+            TextView dayLabel = text(WEEKDAY_NAMES[day.weekday], 14, TEXT);
+            dayLabel.setTypeface(null, Typeface.BOLD);
+            dayLabel.setMinWidth(dp(56));
+            dayRow.addView(dayLabel, new LinearLayout.LayoutParams(dp(56), -2));
+
+            LinearLayout track = new LinearLayout(this);
+            track.setOrientation(LinearLayout.HORIZONTAL);
+            track.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+            track.setBackground(round(0xff0b0f17, 8, 0xff334155));
+            track.setMinimumHeight(dp(44));
+
+            int cursorSlot = 0;
+            for (WeekBlock b : blocks) {
+                int startSlot = (b.startMin - wakeMin) / 15;
+                int durationSlots = (b.endMin - b.startMin) / 15;
+                int gapSlots = startSlot - cursorSlot;
+                if (gapSlots > 0) {
+                    View gap = new View(this);
+                    gap.setBackgroundColor(0xff0b0f17);
+                    gap.setLayoutParams(new LinearLayout.LayoutParams(0, -1, gapSlots));
+                    track.addView(gap);
+                }
+                View block = new View(this);
+                block.setBackground(round(b.color, 4, b.color));
+                block.setContentDescription(b.name);
+                block.setLayoutParams(new LinearLayout.LayoutParams(0, -1, durationSlots));
+                track.addView(block);
+                cursorSlot = startSlot + durationSlots;
+            }
+            int remainingSlots = slotCount - cursorSlot;
+            if (remainingSlots > 0) {
+                View gap = new View(this);
+                gap.setBackgroundColor(0xff0b0f17);
+                gap.setLayoutParams(new LinearLayout.LayoutParams(0, -1, remainingSlots));
+                track.addView(gap);
+            }
+
+            dayRow.addView(track, new LinearLayout.LayoutParams(0, -2, 1));
+            timelineCard.addView(dayRow, margin(0, 0, 0, 8));
+        }
+
+        LinearLayout legend = new LinearLayout(this);
+        legend.setOrientation(LinearLayout.HORIZONTAL);
+        legend.setGravity(Gravity.CENTER);
+        legend.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        legend.addView(legendItem(WEEK_COLOR_WORK, "کار"));
+        legend.addView(legendItem(WEEK_COLOR_GYM, "باشگاه"));
+        for (DbHelper.WeeklyActivity a : activities) {
+            legend.addView(legendItem(activityColor(a.id), a.name));
+        }
+        timelineCard.addView(legend, margin(0, 10, 0, 0));
+
+        content.addView(timelineCard, margin(0, 0, 0, 14));
+    }
+
+    private LinearLayout legendItem(int color, String label) {
+        LinearLayout item = new LinearLayout(this);
+        item.setOrientation(LinearLayout.HORIZONTAL);
+        item.setGravity(Gravity.CENTER_VERTICAL);
+        item.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        View dot = new View(this);
+        dot.setBackground(round(color, 3, color));
+        item.addView(dot, new LinearLayout.LayoutParams(dp(14), dp(14)));
+        item.addView(text(label, 11, TEXT), wrapMargin(4, 0, 6, 0));
+        return item;
+    }
+
+    private void renderWeeklySetup(DbHelper.WeeklySchedule schedule) {
+        content.removeAllViews();
+        TextView heading = text(schedule == null ? "تنظیم برنامه هفتگی" : "ویرایش خواب و برنامه روزها", 20, TEXT);
+        heading.setTypeface(null, Typeface.BOLD);
+        content.addView(heading, margin(0, 0, 0, 12));
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(16), 0, dp(16), 0);
+        scroll.addView(form);
+
+        LinearLayout timePair = new LinearLayout(this);
+        timePair.setOrientation(LinearLayout.HORIZONTAL);
+        timePair.setGravity(Gravity.CENTER_VERTICAL);
+        timePair.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        Button sleepBtn = button(weekSetupSleepTime, 0xff263244);
+        sleepBtn.setOnClickListener(v -> pickTime(weekSetupSleepTime, t -> {
+            weekSetupSleepTime = t;
+            sleepBtn.setText(t);
+        }));
+        Button wakeBtn = button(weekSetupWakeTime, 0xff263244);
+        wakeBtn.setOnClickListener(v -> pickTime(weekSetupWakeTime, t -> {
+            weekSetupWakeTime = t;
+            wakeBtn.setText(t);
+        }));
+
+        timePair.addView(text("خواب:", 14, MUTED), wrapMargin(0, 0, 8, 0));
+        timePair.addView(sleepBtn, new LinearLayout.LayoutParams(0, dp(44), 1));
+        timePair.addView(text("بیداری:", 14, MUTED), wrapMargin(8, 0, 8, 0));
+        timePair.addView(wakeBtn, new LinearLayout.LayoutParams(0, dp(44), 1));
+        form.addView(timePair, margin(0, 0, 0, 16));
+
+        form.addView(text("ساعت کار و باشگاه (اختیاری)", 15, TEXT), margin(0, 0, 0, 8));
+        form.addView(text("زمان‌ها را در ساعات بیداری انتخاب کنید؛ تقاطع مجاز نیست.", 12, MUTED), margin(0, 0, 0, 12));
+
+        for (int w = 0; w < 7; w++) {
+            LinearLayout dayCard = card();
+            dayCard.setOrientation(LinearLayout.VERTICAL);
+            TextView dayLabel = text(WEEKDAY_NAMES[w], 15, TEXT);
+            dayLabel.setTypeface(null, Typeface.BOLD);
+            dayCard.addView(dayLabel, margin(0, 0, 0, 8));
+
+            for (int act = 0; act < 2; act++) {
+                boolean work = act == 0;
+                String label = work ? "کار" : "باشگاه";
+                boolean[] enabled = work ? weekSetupWorkEnabled : weekSetupGymEnabled;
+                String[] starts = work ? weekSetupWorkStart : weekSetupGymStart;
+                String[] ends = work ? weekSetupWorkEnd : weekSetupGymEnd;
+                final int wi = w;
+
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+                CheckBox check = new CheckBox(this);
+                check.setText("سر کار می‌رم - " + label);
+                check.setTextColor(TEXT);
+                check.setChecked(enabled[wi]);
+                check.setOnCheckedChangeListener((b, checked) -> enabled[wi] = checked);
+
+                Button startBtn = button(starts[wi] != null ? starts[wi] : "07:00", 0xff263244);
+                startBtn.setEnabled(enabled[wi]);
+                startBtn.setAlpha(enabled[wi] ? 1f : 0.5f);
+                startBtn.setOnClickListener(v -> pickTime(starts[wi] != null ? starts[wi] : "07:00", t -> {
+                    starts[wi] = t;
+                    startBtn.setText(t);
+                }));
+
+                Button endBtn = button(ends[wi] != null ? ends[wi] : "08:00", 0xff263244);
+                endBtn.setEnabled(enabled[wi]);
+                endBtn.setAlpha(enabled[wi] ? 1f : 0.5f);
+                endBtn.setOnClickListener(v -> pickTime(ends[wi] != null ? ends[wi] : "08:00", t -> {
+                    ends[wi] = t;
+                    endBtn.setText(t);
+                }));
+
+                row.addView(check);
+                row.addView(text("شروع", 12, MUTED), wrapMargin(8, 0, 4, 0));
+                row.addView(startBtn, new LinearLayout.LayoutParams(0, dp(40), 1));
+                row.addView(text("پایان", 12, MUTED), wrapMargin(8, 0, 4, 0));
+                row.addView(endBtn, new LinearLayout.LayoutParams(0, dp(40), 1));
+                dayCard.addView(row, margin(0, 0, 0, 6));
+            }
+
+            form.addView(dayCard, margin(0, 0, 0, 10));
+        }
+
+        Button saveBtn = button("ذخیره و نمایش برنامه", GREEN);
+        saveBtn.setOnClickListener(v -> saveWeeklySetup());
+        form.addView(saveBtn, margin(0, 12, 0, 0));
+
+        Button backBtn = button("بازگشت به برنامه", 0xff263244);
+        backBtn.setOnClickListener(v -> renderWeeklySchedule());
+        form.addView(backBtn, margin(0, 4, 0, 0));
+
+        content.addView(scroll);
+    }
+
+    private void resetWeekSetupState() {
+        weekSetupSleepTime = "22:00";
+        weekSetupWakeTime = "06:00";
+        for (int i = 0; i < 7; i++) {
+            weekSetupWorkEnabled[i] = false;
+            weekSetupGymEnabled[i] = false;
+            weekSetupWorkStart[i] = null;
+            weekSetupWorkEnd[i] = null;
+            weekSetupGymStart[i] = null;
+            weekSetupGymEnd[i] = null;
+        }
+    }
+
+    private void loadWeekSetupState(DbHelper.WeeklySchedule schedule) {
+        weekSetupSleepTime = schedule.sleepTime;
+        weekSetupWakeTime = schedule.wakeTime;
+        ArrayList<DbHelper.ScheduleDay> days = database.getScheduleDays();
+        for (DbHelper.ScheduleDay day : days) {
+            int w = day.weekday;
+            weekSetupWorkEnabled[w] = day.workStart != null || day.workEnd != null;
+            weekSetupGymEnabled[w] = day.gymStart != null || day.gymEnd != null;
+            weekSetupWorkStart[w] = day.workStart;
+            weekSetupWorkEnd[w] = day.workEnd;
+            weekSetupGymStart[w] = day.gymStart;
+            weekSetupGymEnd[w] = day.gymEnd;
+        }
+    }
+
+    private void saveWeeklySetup() {
+        int wakeMin = timeToMinutes(weekSetupWakeTime);
+        int sleepMin = timeToMinutes(weekSetupSleepTime);
+        int awakeMin = (sleepMin - wakeMin + 1440) % 1440;
+        if (awakeMin == 0) {
+            showMessage("زمان خواب و بیداری نباید یکسان باشد.");
+            return;
+        }
+        if (wakeMin % 15 != 0 || sleepMin % 15 != 0) {
+            showMessage("زمان‌ها باید مضربی از ۱۵ دقیقه باشند.");
+            return;
+        }
+        int sleepHours = (1440 - awakeMin) / 60;
+        if (sleepHours > 12) {
+            showMessage("مدت خواب نمی‌تواند بیشتر از ۱۲ ساعت باشد.");
+            return;
+        }
+
+        for (int w = 0; w < 7; w++) {
+            ArrayList<int[]> intervals = new ArrayList<>();
+            if (weekSetupWorkEnabled[w] && weekSetupWorkStart[w] != null && weekSetupWorkEnd[w] != null) {
+                int s = timeToMinutes(weekSetupWorkStart[w]);
+                int e = timeToMinutes(weekSetupWorkEnd[w]);
+                if (!inAwakeWindow(s, e, wakeMin, sleepMin)) {
+                    showMessage("ساعت کار روز " + WEEKDAY_NAMES[w] + " باید در ساعات بیداری باشد.");
+                    return;
+                }
+                intervals.add(new int[]{s, e});
+            }
+            if (weekSetupGymEnabled[w] && weekSetupGymStart[w] != null && weekSetupGymEnd[w] != null) {
+                int s = timeToMinutes(weekSetupGymStart[w]);
+                int e = timeToMinutes(weekSetupGymEnd[w]);
+                if (!inAwakeWindow(s, e, wakeMin, sleepMin)) {
+                    showMessage("ساعت باشگاه روز " + WEEKDAY_NAMES[w] + " باید در ساعات بیداری باشد.");
+                    return;
+                }
+                intervals.add(new int[]{s, e});
+            }
+            for (int i = 0; i < intervals.size(); i++) {
+                for (int j = i + 1; j < intervals.size(); j++) {
+                    if (overlap(intervals.get(i), intervals.get(j))) {
+                        showMessage("کار و باشگاه در روز " + WEEKDAY_NAMES[w] + " تداخل دارند.");
+                        return;
+                    }
+                }
+            }
+        }
+
+        database.saveWeeklySchedule(weekSetupSleepTime, weekSetupWakeTime);
+        for (int w = 0; w < 7; w++) {
+            database.saveScheduleDay(
+                    w,
+                    weekSetupWorkEnabled[w] ? weekSetupWorkStart[w] : null,
+                    weekSetupWorkEnabled[w] ? weekSetupWorkEnd[w] : null,
+                    weekSetupGymEnabled[w] ? weekSetupGymStart[w] : null,
+                    weekSetupGymEnabled[w] ? weekSetupGymEnd[w] : null
+            );
+        }
+        showMessage("برنامه هفتگی ذخیره شد.");
+        renderWeeklySchedule();
+    }
+
+    private boolean inAwakeWindow(int startMin, int endMin, int wakeMin, int sleepMin) {
+        int duration = (endMin - startMin + 1440) % 1440;
+        if (duration == 0) return false;
+        int startOffset = (startMin - wakeMin + 1440) % 1440;
+        int awakeMin = (sleepMin - wakeMin + 1440) % 1440;
+        if (awakeMin == 0) awakeMin = 1440;
+        return startMin % 15 == 0 && endMin % 15 == 0 && startOffset + duration <= awakeMin;
+    }
+
+    private boolean overlap(int[] a, int[] b) {
+        return a[0] < b[1] && b[0] < a[1];
+    }
+
+    private void renderWeeklyManageActivities() {
+        content.removeAllViews();
+        TextView heading = text("مدیریت فعالیت‌های هفتگی", 20, TEXT);
+        heading.setTypeface(null, Typeface.BOLD);
+        content.addView(heading, margin(0, 0, 0, 12));
+
+        ArrayList<DbHelper.WeeklyActivity> activities = database.getWeeklyActivities();
+        if (activities.isEmpty()) {
+            LinearLayout emptyCard = card();
+            emptyCard.addView(text("هنوز فعالیتی ثبت نشده است.", 14, MUTED), margin(0, 8, 0, 8));
+            Button addBtn = button("افزودن فعالیت", GREEN);
+            addBtn.setOnClickListener(v -> {
+                resetWeekActivityState();
+                renderWeeklyAddActivityDialog();
+            });
+            emptyCard.addView(addBtn, margin(0, 8, 0, 0));
+            content.addView(emptyCard, margin(0, 0, 0, 14));
+            Button backBtn = button("بازگشت به برنامه", 0xff263244);
+            backBtn.setOnClickListener(v -> renderWeeklySchedule());
+            content.addView(backBtn, margin(0, 4, 0, 0));
+            return;
+        }
+
+        for (DbHelper.WeeklyActivity a : activities) {
+            ArrayList<DbHelper.ActivitySlot> slots = database.getActivitySlots(a.id);
+            LinearLayout row = card();
+            row.setOrientation(LinearLayout.VERTICAL);
+            TextView title = text(a.name, 15, TEXT);
+            title.setTypeface(null, Typeface.BOLD);
+            row.addView(title, margin(0, 0, 0, 6));
+            StringBuilder slotText = new StringBuilder();
+            for (DbHelper.ActivitySlot s : slots) {
+                if (slotText.length() > 0) slotText.append("، ");
+                slotText.append(WEEKDAY_NAMES[s.weekday]).append(" ").append(s.startTime).append("–").append(s.endTime);
+            }
+            row.addView(text(slotText.length() > 0 ? slotText.toString() : "بدون زمان*", 12, MUTED), margin(0, 0, 0, 8));
+            LinearLayout btns = new LinearLayout(this);
+            btns.setOrientation(LinearLayout.HORIZONTAL);
+            btns.setGravity(Gravity.CENTER);
+            Button editBtn = button("ویرایش", 0xff263244);
+            editBtn.setTextSize(11);
+            Button delBtn = button("حذف", 0xff7f1d1d);
+            delBtn.setTextSize(11);
+            btns.addView(editBtn, new LinearLayout.LayoutParams(dp(64), dp(36)));
+            btns.addView(delBtn, new LinearLayout.LayoutParams(dp(60), dp(36)));
+            row.addView(btns);
+            content.addView(row, margin(0, 0, 0, 8));
+
+            editBtn.setOnClickListener(v -> {
+                weekEditActivityId = a.id;
+                weekActivityName = a.name;
+                for (int i = 0; i < 7; i++) {
+                    weekActivityDays[i] = false;
+                    weekActivityStart[i] = null;
+                    weekActivityEnd[i] = null;
+                }
+                for (DbHelper.ActivitySlot s : slots) {
+                    weekActivityDays[s.weekday] = true;
+                    weekActivityStart[s.weekday] = s.startTime;
+                    weekActivityEnd[s.weekday] = s.endTime;
+                }
+                renderWeeklyEditActivityDialog(a.id);
+            });
+            delBtn.setOnClickListener(v -> deleteWeeklyActivity(a.id));
+        }
+
+        Button addBtn = button("+ فعالیت جدید", GREEN);
+        addBtn.setOnClickListener(v -> {
+            resetWeekActivityState();
+            renderWeeklyAddActivityDialog();
+        });
+        content.addView(addBtn, margin(0, 8, 0, 8));
+
+        Button backBtn = button("بازگشت به برنامه", 0xff263244);
+        backBtn.setOnClickListener(v -> renderWeeklySchedule());
+        content.addView(backBtn, margin(0, 4, 0, 0));
+    }
+
+    private void renderWeeklyAddActivityDialog() {
+        showWeeklyActivityDialog(null, "افزودن فعالیت");
+    }
+
+    private void renderWeeklyEditActivityDialog(long activityId) {
+        DbHelper.WeeklyActivity activity = null;
+        for (DbHelper.WeeklyActivity a : database.getWeeklyActivities()) {
+            if (a.id == activityId) { activity = a; break; }
+        }
+        if (activity == null) return;
+        weekEditActivityId = activityId;
+        weekActivityName = activity.name;
+        showWeeklyActivityDialog(activityId, "ویرایش فعالیت");
+    }
+
+    private void showWeeklyActivityDialog(Long activityId, String title) {
+        Dialog dialog = new Dialog(this);
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(20), dp(20), dp(20), dp(20));
+        page.setBackgroundColor(BG);
+
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        titleRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        TextView heading = text(title, 20, TEXT);
+        heading.setTypeface(null, Typeface.BOLD);
+        titleRow.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
+        Button close = button("×", 0xff263244);
+        titleRow.addView(close, new LinearLayout.LayoutParams(dp(42), dp(42)));
+        page.addView(titleRow);
+        close.setOnClickListener(v -> dialog.dismiss());
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(0, dp(8), 0, 0);
+        scroll.addView(form);
+
+        EditText name = field("نام فعالیت", weekActivityName, android.text.InputType.TYPE_CLASS_TEXT);
+        form.addView(text("نام", 12, MUTED));
+        form.addView(name, margin(0, 4, 0, 12));
+
+        form.addView(text("روزها", 12, MUTED));
+        LinearLayout dayChecks = new LinearLayout(this);
+        dayChecks.setOrientation(LinearLayout.VERTICAL);
+        dayChecks.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        for (int w = 0; w < 7; w++) {
+            final int day = w;
+            CheckBox cb = new CheckBox(this);
+            cb.setText(WEEKDAY_NAMES[w]);
+            cb.setTextColor(TEXT);
+            cb.setChecked(weekActivityDays[w]);
+            cb.setOnCheckedChangeListener((b, checked) -> weekActivityDays[day] = checked);
+            dayChecks.addView(cb, margin(0, 2, 0, 2));
+        }
+        form.addView(dayChecks, margin(0, 0, 0, 12));
+
+        for (int w = 0; w < 7; w++) {
+            final int day = w;
+            LinearLayout timeRow = new LinearLayout(this);
+            timeRow.setOrientation(LinearLayout.HORIZONTAL);
+            timeRow.setGravity(Gravity.CENTER_VERTICAL);
+            timeRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+            timeRow.setVisibility(weekActivityDays[w] ? View.VISIBLE : View.GONE);
+
+            Button startBtn = button(weekActivityStart[day] != null ? weekActivityStart[day] : "09:00", 0xff263244);
+            startBtn.setOnClickListener(v -> pickTime(weekActivityStart[day] != null ? weekActivityStart[day] : "09:00", t -> weekActivityStart[day] = t));
+            Button endBtn = button(weekActivityEnd[day] != null ? weekActivityEnd[day] : "10:00", 0xff263244);
+            endBtn.setOnClickListener(v -> pickTime(weekActivityEnd[day] != null ? weekActivityEnd[day] : "10:00", t -> weekActivityEnd[day] = t));
+
+            timeRow.addView(text(WEEKDAY_NAMES[w], 13, TEXT), wrapMargin(0, 0, 8, 0));
+            timeRow.addView(startBtn, new LinearLayout.LayoutParams(0, dp(40), 1));
+            timeRow.addView(text("تا", 12, MUTED), wrapMargin(4, 0, 4, 0));
+            timeRow.addView(endBtn, new LinearLayout.LayoutParams(0, dp(40), 1));
+            form.addView(timeRow, margin(0, 0, 0, 8));
+        }
+
+        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        Button save = button("ذخیره", GREEN);
+        actions.addView(save, new LinearLayout.LayoutParams(0, dp(50), 1));
+        save.setOnClickListener(v -> saveWeeklyActivity(dialog));
+        if (activityId != null) {
+            Button del = button("حذف", 0xff7f1d1d);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(50), 1);
+            p.setMargins(dp(10), 0, 0, 0);
+            actions.addView(del, p);
+            del.setOnClickListener(v -> {
+                deleteWeeklyActivity(activityId);
+                dialog.dismiss();
+            });
+        }
+        page.addView(actions);
+        dialog.setContentView(page);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(-1, -1);
+        }
+        dialog.show();
+    }
+
+    private void saveWeeklyActivity(Dialog dialog) {
+        String name = weekActivityName.trim();
+        if (name.isEmpty() || name.length() > 100) {
+            showMessage("نام فعالیت را وارد کنید (بیشینه ۱۰۰ نویسه).");
+            return;
+        }
+        ArrayList<Integer> selectedDays = new ArrayList<>();
+        for (int w = 0; w < 7; w++) {
+            if (weekActivityDays[w]) selectedDays.add(w);
+        }
+        if (selectedDays.isEmpty()) {
+            showMessage("حداقل یک روز را انتخاب کنید.");
+            return;
+        }
+
+        int wakeMin = timeToMinutes(weekSetupWakeTime);
+        int sleepMin = timeToMinutes(weekSetupSleepTime);
+        DbHelper.WeeklySchedule schedule = database.getWeeklySchedule();
+        if (schedule != null) {
+            wakeMin = timeToMinutes(schedule.wakeTime);
+            sleepMin = timeToMinutes(schedule.sleepTime);
+        }
+
+        for (int w : selectedDays) {
+            if (weekActivityStart[w] == null || weekActivityEnd[w] == null) {
+                showMessage("زمان شروع و پایان برای روز " + WEEKDAY_NAMES[w] + " را وارد کنید.");
+                return;
+            }
+            int s = timeToMinutes(weekActivityStart[w]);
+            int e = timeToMinutes(weekActivityEnd[w]);
+            if (!inAwakeWindow(s, e, wakeMin, sleepMin)) {
+                showMessage("زمان روز " + WEEKDAY_NAMES[w] + " باید در ساعات بیداری و روی تقسیمات ۱۵ دقیقه‌ای باشد.");
+                return;
+            }
+            for (int w2 : selectedDays) {
+                if (w2 == w) continue;
+                // overlap check only within same day, skip cross-day
+            }
+            // Same-day overlap with existing slots (excluding this activity if editing)
+            ArrayList<DbHelper.WeeklyActivity> activities = database.getWeeklyActivities();
+            for (DbHelper.WeeklyActivity a : activities) {
+                if (weekEditActivityId != -1 && a.id == weekEditActivityId) continue;
+                for (DbHelper.ActivitySlot slot : database.getActivitySlots(a.id)) {
+                    if (slot.weekday != w) continue;
+                    int ss = timeToMinutes(slot.startTime);
+                    int ee = timeToMinutes(slot.endTime);
+                    if (overlap(new int[]{s, e}, new int[]{ss, ee})) {
+                        showMessage("این زمان با فعالیت \"" + a.name + "\" در روز " + WEEKDAY_NAMES[w] + " تداخل دارد.");
+                        return;
+                    }
+                }
+            }
+            // Same-day overlap with work/gym
+            ArrayList<DbHelper.ScheduleDay> days = database.getScheduleDays();
+            for (DbHelper.ScheduleDay day : days) {
+                if (day.weekday != w) continue;
+                if (day.workStart != null && day.workEnd != null) {
+                    int ws = timeToMinutes(day.workStart);
+                    int we = timeToMinutes(day.workEnd);
+                    if (overlap(new int[]{s, e}, new int[]{ws, we})) {
+                        showMessage("زمان با ساعت کار در روز " + WEEKDAY_NAMES[w] + " تداخل دارد.");
+                        return;
+                    }
+                }
+                if (day.gymStart != null && day.gymEnd != null) {
+                    int gs = timeToMinutes(day.gymStart);
+                    int ge = timeToMinutes(day.gymEnd);
+                    if (overlap(new int[]{s, e}, new int[]{gs, ge})) {
+                        showMessage("زمان با ساعت باشگاه در روز " + WEEKDAY_NAMES[w] + " تداخل دارد.");
+                        return;
+                    }
+                }
+            }
+        }
+
+        long activityId;
+        if (weekEditActivityId != -1) {
+            // Delete old slots and recreate
+            database.deleteWeeklyActivity(weekEditActivityId);
+            activityId = weekEditActivityId;
+            // Re-insert activity with same id is not supported by insert; delete+add creates new id.
+            // Instead, update name and re-add slots.
+            // DbHelper doesn't have update activity name; we delete and re-add.
+            activityId = database.addWeeklyActivity(name);
+        } else {
+            activityId = database.addWeeklyActivity(name);
+        }
+        for (int w : selectedDays) {
+            database.addActivitySlot(activityId, w, weekActivityStart[w], weekActivityEnd[w]);
+        }
+        dialog.dismiss();
+        resetWeekActivityState();
+        weekEditActivityId = -1;
+        renderWeeklyManageActivities();
+        showMessage("فعالیت ذخیره شد.");
+    }
+
+    private void deleteWeeklyActivity(long activityId) {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("حذف فعالیت؟")
+                .setMessage("این فعالیت و تمامbraceزمان‌های آن از برنامه هفتگی حذف می‌شود.")
+                .setNegativeButton("انصراف", null)
+                .setPositiveButton("حذف", (d, w) -> {
+                    database.deleteWeeklyActivity(activityId);
+                    renderWeeklyManageActivities();
+                    showMessage("فعالیت حذف شد.");
+                })
+                .show()
+                .getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                .setTextColor(0xffef4444);
+    }
+
+    private void resetWeekActivityState() {
+        weekActivityName = "";
+        for (int i = 0; i < 7; i++) {
+            weekActivityDays[i] = false;
+            weekActivityStart[i] = null;
+            weekActivityEnd[i] = null;
+        }
+        weekEditActivityId = -1;
+    }
+
+    private void pickTime(String current, TimePickerCallback callback) {
+        String[] parts = (current == null || current.isEmpty()) ? new String[]{"07", "00"} : current.split(":");
+        int hour;
+        int minute;
+        try {
+            hour = Integer.parseInt(parts[0]);
+            minute = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            hour = 7;
+            minute = 0;
+        }
+        TimePickerDialog dialog = new TimePickerDialog(this, (view, selectedHour, selectedMinute) -> {
+            callback.onTimeSelected(String.format(java.util.Locale.ROOT, "%02d:%02d", selectedHour, selectedMinute));
+        }, hour, minute, true);
+        dialog.show();
+    }
+
+    private int timeToMinutes(String time) {
+        if (time == null || time.isEmpty()) return -1;
+        String[] parts = time.split(":");
+        return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
+    }
+
+    private int activityColor(long id) {
+        int[] colors = {0xffef4444, 0xfff97316, 0xfffb923c, 0xfffacc15, 0xff84cc16, 0xff22c55e, 0xff06b6d4, 0xff3b82f6, 0xff8b5cf6, 0xffd946ef};
+        return colors[(int) (id % colors.length)];
+    }
+
+    private interface TimePickerCallback {
+        void onTimeSelected(String time);
     }
 
 }
